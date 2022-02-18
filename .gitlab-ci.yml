@@ -1,0 +1,41 @@
+image: gitlab.ewi.tudelft.nl:4242/bohdan/docker-image-builder@sha256:4cc58d8d8c4d35d47d20479e6b90f0bc344fc0286d687550518a258aed9ce71d
+
+stages:
+- build
+- test
+
+build:
+  stage: build
+  before_script:
+  - cp -r ~/.cabal .
+  - cp -r /dist-newstyle .
+  - cabal v2-configure --enable-tests
+  script:
+  - cabal v2-build exe:jq-clone
+
+from-upstream:
+  stage: test
+  before_script:
+  - cp -r ~/.cabal .
+  - cp -r /dist-newstyle .
+  - cabal v2-configure --enable-tests
+  script:
+  - cabal test from-upstream
+
+week3:
+  stage: test
+  before_script:
+  - cp -r ~/.cabal .
+  - cp -r /dist-newstyle .
+  - cabal v2-configure --enable-tests
+  script:
+  - cabal test week3
+
+week4:
+  stage: test
+  before_script:
+  - cp -r ~/.cabal .
+  - cp -r /dist-newstyle .
+  - cabal v2-configure --enable-tests
+  script:
+  - cabal test week4

@@ -83,6 +83,9 @@ string (x:xs) = do char x
                    string xs
                    return (x:xs)
 
+unicode :: Parser String
+unicode = some (sat isPrint)
+
 ident :: Parser String
 ident = do x  <- lower
            xs <- many (alphanum <|> char '_')

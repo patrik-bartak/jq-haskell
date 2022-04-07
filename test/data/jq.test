@@ -2,12 +2,24 @@
 # Blank lines and lines starting with # are ignored
 
 #
-# Simple value tests to check parser. Input is irrelevant
+# Parser checks
 #
 
 .
 null
 null
+
+.
+1234
+1234
+
+.
+[true, 12, "string", {}]
+[true, 12, "string", {}]
+
+.
+{"foo": 42, "bar": [false]}
+{"foo": 42, "bar": [false]}
 
 #
 # Field access, piping

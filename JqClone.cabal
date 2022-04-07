@@ -30,11 +30,11 @@ license:             BSD3
 license-file:        LICENSE
 
 -- The package author(s).
-author:              Your Name
+author:              Patrik Bartak
 
 -- An email address to which users can send suggestions, bug reports, and
 -- patches.
-maintainer:          youremail@tudelft.nl
+maintainer:          p.bartak@student.tudelft.nl
 
 -- A copyright notice.
 -- copyright:
@@ -62,7 +62,7 @@ library
   -- Libraries other than mentioned below aren't allowed
   build-depends:       base >=4.14 && <4.17
                        -- Uncomment if needed:
-                       -- , containers >= 0.6 && < 0.7
+                       , containers >= 0.6 && < 0.7
                        -- , QuickCheck >= 2.13.2 && < 2.15
 
   -- Directories containing source files.

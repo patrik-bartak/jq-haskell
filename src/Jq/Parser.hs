@@ -4,7 +4,9 @@ import Jq.CParser
 import Jq.JParser
 import qualified Parsing.Parsing as P (Parser, parse)
 
+
 parse :: P.Parser a -> String -> Maybe a
-parse p s = case (P.parse p s) of
+parse p s = case P.parse p s of
   [(v, "")] -> Just v
+  -- [(v, r)] -> trace (show [(v, r)]) Nothing
   _ -> Nothing

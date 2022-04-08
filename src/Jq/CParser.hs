@@ -62,7 +62,7 @@ parseGenReq = do
 parseArrayOpt :: Parser Filter
 parseArrayOpt = do
   _ <- parseIndexingOpen
-  idx <- nat
+  idx <- int
   _ <- parseIndexingClose
   _ <- parseOptional
   return (ArrayIndexing Opt idx)
@@ -70,15 +70,15 @@ parseArrayOpt = do
 parseArrayReq :: Parser Filter
 parseArrayReq = do
   _ <- parseIndexingOpen
-  idx <- nat
+  idx <- int
   _ <- parseIndexingClose
   return (ArrayIndexing Req idx)
 
 parseInnerSlice :: Parser (Int, Int)
 parseInnerSlice = do
-  lo <- nat
+  lo <- int
   _ <- parseSliceSep
-  hi <- nat
+  hi <- int
   return (lo, hi)
 
 parseSliceOpt :: Parser Filter

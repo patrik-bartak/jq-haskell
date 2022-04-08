@@ -17,7 +17,7 @@ process args json = do
   obj <- maybe (Left "Couldn't parse JSON") Right $ parse parseJSON $ json
   let program = compile . filters $ v
   res <- left ("Couldn't execute the program: " ++) $ run program obj
-  return $ concat . map ((++"\n") . show) $ res
+  return $ concat . map ((++"\n") . show) $ res -- res instead of show obj
 
 processIO :: [String] -> String -> IO (Either String ())
 processIO c s = do

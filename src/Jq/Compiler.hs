@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use record patterns" #-}
 
 module Jq.Compiler where
 
@@ -6,6 +8,19 @@ import Jq.Filters
 import Jq.Json
 
 type JProgram a = JSON -> Either String a
+
+sliceList :: [a] -> Int -> Int -> [a]
+sliceList xs lo hi = take (hi - lo) (drop lo xs)
+
+normalizeIndices :: (Int, Int) -> [a] -> (Int, Int)
+normalizeIndices (lo, hi) xs = (normalizeIndex lo xs, normalizeIndex hi xs)
+
+normalizeIndex :: Int -> [a] -> Int
+normalizeIndex idx xs
+  | idx < 0 = idx + len
+  | otherwise = idx
+  where
+    len = length xs
 
 compile :: Filter -> JProgram [JSON]
 -- DictIndexing Req
@@ -46,9 +61,10 @@ compile (ArrayIndexing Opt _) (JObject _) = return []
 -- ArrayIndexing All
 compile (ArrayIndexing _ _) (JArray []) = return [JNull]
 compile (ArrayIndexing optio idx) (JArray (x : xs))
-  | idx == 0 = return [x]
-  | idx > 0 = compile (ArrayIndexing optio (idx - 1)) (JArray xs)
-  | otherwise = compile (ArrayIndexing optio (- (idx + 1))) (JArray (reverse xs))
+  | norm_idx == 0 = return [x]
+  | otherwise = compile (ArrayIndexing optio (norm_idx - 1)) (JArray xs)
+  where
+    norm_idx = normalizeIndex idx (x : xs)
 -- ArraySlice Req
 compile (ArraySlice Req _ _) JNull = Left "Cannot ArraySlice null"
 compile (ArraySlice Req _ _) (JNumber _) = Left "Cannot ArraySlice number"
@@ -60,22 +76,19 @@ compile (ArraySlice Opt _ _) (JNumber _) = return []
 compile (ArraySlice Opt _ _) (JBool _) = return []
 compile (ArraySlice Opt _ _) (JObject _) = return []
 -- ArraySlice String
-compile (ArraySlice _ _ _) (JString []) = return [JArray []]
+compile (ArraySlice _ _ _) (JString []) = return [JString []]
 compile (ArraySlice _ lo hi) (JString xs)
-  | hi <= lo = return [JArray []]
-  | otherwise = return [JString (take (hi - 1) (drop lo xs))]
--- compile (ArraySlice optio lo hi) (JString str) = do
---   -- String to array structure
---   let arrayLikeString = map (\char -> JString [char]) str
---   indexedJson <- compile (ArraySlice optio lo hi) (JArray arrayLikeString)
---   -- Array back to string structure
---   let otherWay = map (\(JArray jStrings) -> map (\(JString char) -> char) jStrings) indexedJson
---   return [JString (concat (concat otherWay))]
+  | norm_hi <= norm_lo = return [JString []]
+  | otherwise = return [JString (sliceList xs norm_lo norm_hi)]
+  where
+    (norm_lo, norm_hi) = normalizeIndices (lo, hi) xs
 -- ArraySlice All
 compile (ArraySlice _ _ _) (JArray []) = return [JArray []]
 compile (ArraySlice _ lo hi) (JArray xs)
-  | hi <= lo = return [JArray []]
-  | otherwise = return [JArray (take (hi - 1) (drop lo xs))]
+  | norm_hi <= norm_lo = return [JArray []]
+  | otherwise = return [JArray (sliceList xs norm_lo norm_hi)]
+  where
+    (norm_lo, norm_hi) = normalizeIndices (lo, hi) xs
 -- Pipe
 compile (Pipe f1 f2) inp = do
   res1 <- compile f1 inp -- :: Either String [JSON]

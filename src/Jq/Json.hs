@@ -1,4 +1,5 @@
 module Jq.Json where
+import Data.Char
 
 data JSON
   = JNull
@@ -7,16 +8,15 @@ data JSON
   | JBool Bool
   | JArray [JSON]
   | JObject [(String, JSON)]
+    -- deriving Show
 
-renderString :: String -> String
-renderString str = "\"" ++ escape str ++ "\""
-  where
-    escape [] = []
-    escape (x : y : xs)
-      | x == '\\' && y == 'n' = y : escape xs
-      | x == '\\' && y == '\\' = x : y : escape xs
-      | otherwise = x : y : escape xs
-    escape xs = xs
+  -- where
+  --   escape [] = []
+  --   escape (x : y : xs)
+  --     | x == '\\' && y == 'n' = y : escape xs
+  --     | x == '\\' && y == '\\' = x : y : escape xs
+  --     | otherwise = x : y : escape xs
+  --   escape xs = xs
 
 -- >>> :t 2.0e45
 -- 2.0e45 :: Fractional p => p
@@ -49,6 +49,19 @@ replaceExceptLast :: Char -> String -> String -> String
 replaceExceptLast _ _ [] = []
 replaceExceptLast _ _ [x] = [x]
 replaceExceptLast old new (x : xs) = if x == old then new ++ replaceExceptLast old new xs else x : replaceExceptLast old new xs
+
+escapeChars :: [Char] -> String -> String
+escapeChars [] str = str
+escapeChars (old : olds) str = escapeChars olds (replace old new str)
+  where
+    new = if old == '"' then "\\\"" else showLitChar old ""
+
+replace :: Char -> String -> String -> String
+replace _ _ [] = []
+replace old new (x : xs) = if x == old then new ++ replace old new xs else x : replace old new xs
+
+-- >>> escapeChars "\n\r\f" "asdf\n\r\f"
+-- "asdf\\\n\\\r\\\f"
 
 -- renderJArray :: String
 -- renderJArray = "[" ++ replace "\n" "\n  " (renderInnerJArray xs) ++ "]"
@@ -84,7 +97,8 @@ instance Show JSON where
       fixedExpEnding = fixSignBeforeExponential possibleExpEnding
       asIntWithFixedEnding = dubStrAsInt ++ fixedExpEnding
       asFloatWithFixedEnding = dubStrWithoutExp ++ fixedExpEnding
-  show (JString str) = renderString str
+  show (JString str) = "\"" ++ escapeChars ['\\','\'','\"','\n','\r','\t','\b','\f','\v'] str ++ "\""
+  -- show (JString str) = "\"" ++ str ++ "\""
   show (JBool b) = renderBool b
   show (JArray xs) = "[" ++ replaceExceptLast '\n' "\n  " (renderInnerJArray xs) ++ "]"
   show (JObject objs) = "{" ++ sorted ++ "}"

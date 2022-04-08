@@ -1,13 +1,14 @@
 module Jq.JParser where
 
 import Data.Char
-import GHC.Unicode
 import Jq.Json
 import Parsing.Parsing
+import Debug.Trace
+import Numeric
 
 parseJNull :: Parser JSON
 parseJNull = do
-  _ <- string "null"
+  _ <- string "null" <|> string "Nan" <|> string "NAn" <|> string "NaN" <|> string "NAN"
   return JNull
 
 -- decInt :: Parser JSON
@@ -156,6 +157,8 @@ parseJObjectMultiple = do
   (key, singleInnerJson) <- parseJObjectKeyValPair
   innerJsons <- many parseJObjectInnerJsons
   _ <- parseJObjectClose
+  -- Add functino that only keeps last instance of duplicate keys
+  -- Maybe some hashset?
   return (JObject ((key, singleInnerJson) : innerJsons))
   where
     parseJObjectInnerJsons = do
@@ -183,38 +186,92 @@ parseJObject = parseJObjectEmpty <|> parseJObjectSingleton <|> parseJObjectMulti
 -- unicode :: Parser String
 -- unicode = some (sat isLetter <|> sat isSpace <|> sat isMark <|> sat isSymbol <|> sat isSeparator <|> sat isPunctuation)
 
-innerJString :: Parser String
-innerJString = some (alphanum <|> char '_' <|> char '.' <|> char ' ' <|> sat isSymbol <|> sat isSeparator)
---  <|> sat isPrint
--- innerJString = some (sat (const True))
-innerJStringEscaped :: Parser String
-innerJStringEscaped = string "\\\"" <|> string "\\" <|> string "\n" <|> string "\t" <|> string "\r" <|> string "\f" <|> string "\v"
+-- innerJString :: Parser String
+-- innerJString = some (alphanum <|> char '_' <|> char '.' <|> char ',' <|> char ' ' <|> char '{' <|> char '}' <|> char ':' <|> sat isSymbol <|> sat isSeparator)
+--     -- <|> sat isPrint
+-- -- innerJString = some (sat (const True))
+-- innerJStringEscaped :: Parser String
+-- innerJStringEscaped = string "\\\"" <|> string "\\n" <|> string "\\t" <|> string "\\r" <|> string "\\f" <|> string "\\v" <|> string "\\b"
+--                        <|> string "\\\\"
+
+-- readHexParser :: Parser Int
+-- readHexParser = do
+--   num <- readHex
+--   return num
+
+unicode :: Parser String
+unicode = do
+  _ <- char '\\'
+  _ <- char 'u'
+  a <- alphanum
+  b <- alphanum
+  c <- alphanum
+  d <- alphanum
+  let asInt = fst (head (readHex [a,b,c,d]))
+  return [toEnum asInt :: Char]
+
+anyOtherThanEndQuote :: Parser String
+anyOtherThanEndQuote = do
+  str <- sat ('"' /=)
+  return [str]
+
+escape :: Parser String
+escape = do
+  escStr <- string "\\'" <|> string "\\\"" <|> string "\\\\"
+        <|> string "\\n" <|> string "\\r" <|> string "\\t"
+        <|> string "\\b" <|> string "\\f" <|> string "\\v"
+        -- should not be in JSON strings?
+        -- <|> string "\\0" <|> string "\\xFF"
+  return [fst (head (readLitChar escStr))]
 
 parseJString :: Parser JSON
 parseJString = do
   _ <- char '"'
-  -- looking for \" or ident
-  list_of_strs <- many (innerJStringEscaped <|> innerJString)
+  -- read anything other than escaped quotes 
+  strs <- many (unicode <|> escape <|> anyOtherThanEndQuote)
   _ <- char '"'
-  return (JString (concat list_of_strs))
+  let joined = concat strs
+  -- Parse debugging
+  -- return (trace (show (zip (map length strs) strs)) (JString joined))
+  return (JString joined)
 
-{- >>> parse parseJSON "[\"\u2600\""]"
-lexical error in string/character literal at character 'u'
+-- >>> length "\\\\\\\""
+-- 4
+
+{- >>> parse parseJSON "[\"Aa\r\n\t\b\f\"]"
+[([
+  "Aa\r\n\t\b\f"
+],"")]
 -}
-{- >>> parse parseJSON "[\"☀\"]"
-[]
+
+-- Does not work
+{- >>> parse parseJSON "\"Ну и где этот ваш хвалёный уникод?\""
+[("\1053\1091 \1080 \1075\1076\1077 \1101\1090\1086\1090 \1074\1072\1096 \1093\1074\1072\1083\1105\1085\1099\1081 \1091\1085\1080\1082\1086\1076?","")]
+-}
+
+-- "\"as\\\"df\"" -> [("as\"df","")] is correct
+{- >>> parse parseJString "\"as\\n\\\"df\""
+[("as\n\"df","")]
+-}
+
+-- Output should have half the number of slashes
+-- This works
+{- >>> parse parseJSON "\"A\\\\a\\r\\n\\t\\b\\f\""
+[("A\\a\r\n\t\b\f","")]
+-}
+
+-- This should be the sun
+{- >>> parse parseJSON "\"\u2600\""
+lexical error in string/character literal at character 'u'
 -}
 
 -- >>> isLetter '蔡' && isLetter 'λ'
 -- True
--- >>> parse parseJSON "\"fa λ An\""
--- []
--- >>> parse parseJSON "\"faAn\""
--- []
--- >>> parse parseJSON "\"\""
--- []
 
--- Parser JSON :: P (String -> [(JSON,String)])
+-- >>> parse parseJSON "\"fa λ An\""
+-- [("fa \955 An","")]
+
+
 -- token :: Parser a -> Parser a
 -- token p = do space
 --              v <- p
@@ -237,17 +294,7 @@ parseJSON =
     <|> token parseJObject
     <|> token parseJString
 
-{- >>> parse parseJSON "{\"foo\": 42, \"bar\": [false]}"
-[({
-  "foo": 42,
-  "bar": [
-    false
-  ]
-},"")]
--}
-
-{- >>> parse parseJSON "{\"kokot\":\"Matej\"}"
-[({
-  "kokot": "Matej"
-},"")]
+{- >>> parse parseJSON "\"{"foo": {"2":2,"1":1}, "bar": [1.,2.4,3e3,4.5E2]}\""
+Variable not in scope: foo
+Variable not in scope: bar
 -}

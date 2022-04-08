@@ -210,19 +210,23 @@ unicode = do
   let asInt = fst (head (readHex [a,b,c,d]))
   return [toEnum asInt :: Char]
 
-anyOtherThanEndQuote :: Parser String
-anyOtherThanEndQuote = do
-  str <- sat ('"' /=)
-  return [str]
-
 escape :: Parser String
-escape = do
+escape = (do
   escStr <- string "\\'" <|> string "\\\"" <|> string "\\\\"
         <|> string "\\n" <|> string "\\r" <|> string "\\t"
         <|> string "\\b" <|> string "\\f" <|> string "\\v"
         -- should not be in JSON strings?
         -- <|> string "\\0" <|> string "\\xFF"
-  return [fst (head (readLitChar escStr))]
+  return [fst (head (readLitChar escStr))])
+      <|> (do 
+  s <- string "\\"
+  anyChar <- sat (const False)
+  return (errorWithoutStackTrace ("Invalid escape sequence: " ++ s ++ [anyChar])))
+
+anyOtherThanEndQuote :: Parser String
+anyOtherThanEndQuote = do
+  str <- sat ('"' /=)
+  return [str]
 
 parseJString :: Parser JSON
 parseJString = do

@@ -1,26 +1,33 @@
 module Jq.CParser where
 
-import Parsing.Parsing
 import Jq.Filters
-import Jq.JParser ( parseJObjectField )
-
+import Jq.JParser (parseJObjectField)
+import Parsing.Parsing
 
 parseIndexPeriod :: Parser Char
 parseIndexPeriod = token (char '.')
+
 parseSliceSep :: Parser Char
 parseSliceSep = token (char ':')
+
 parseOptional :: Parser Char
 parseOptional = token (char '?')
+
 parseCommaSep :: Parser Char
 parseCommaSep = token (char ',')
+
 parsePipeSep :: Parser Char
 parsePipeSep = token (char '|')
+
 parseIndexingOpen :: Parser Char
 parseIndexingOpen = token (char '[')
+
 parseIndexingClose :: Parser Char
 parseIndexingClose = token (char ']')
+
 parseParenOpen :: Parser Char
 parseParenOpen = token (char '(')
+
 parseParenClose :: Parser Char
 parseParenClose = token (char ')')
 
@@ -89,14 +96,42 @@ parseSliceReq = do
   _ <- parseIndexingClose
   return (ArraySlice Req lo hi)
 
+-- parseInnerIter :: Parser [Int]
+-- parseInnerIter = do
+--       idx <- int
+--       innerJsons <- many parseInnerJsons
+--       return (JArray (singleInnerJson:innerJsons))
+--             where parseInnerJsons = do
+--                               _ <- parseMultiValueSeperator
+--                               parseJSON
+
+-- parseIterOpt :: Parser Filter
+-- parseIterOpt = do
+--   _ <- parseIndexingOpen
+--   idxs <- parseInnerIter
+--   _ <- parseIndexingClose
+--   _ <- parseOptional
+--   return (Iter Opt idxs)
+
+-- parseIterReq :: Parser Filter
+-- parseIterReq = do
+--   _ <- parseIndexingOpen
+--   idxs <- parseInnerIter
+--   _ <- parseIndexingClose
+--   return (Iter Req idxs)
+
 parseDictIndexing :: Parser Filter
 parseDictIndexing = do
   -- _ <- parseIndexPeriod
-  fieldIdx <- parseIdentity <|> parseGenOpt <|> parseGenReq <|> parseIdenOpt <|> parseIdenReq 
-          <|> parseArrayOpt <|> parseArrayReq 
-          <|> parseSliceOpt <|> parseSliceReq
-          -- <|> parseArrayIterOpt <|> parseArrayIterReq
-          -- <|> parseDictIterOpt <|> parseDictIterReq
+  fieldIdx <-
+    parseIdentity <|> parseGenOpt <|> parseGenReq <|> parseIdenOpt <|> parseIdenReq
+      <|> parseArrayOpt
+      <|> parseArrayReq
+      <|> parseSliceOpt
+      <|> parseSliceReq
+  -- <|> parseIterOpt <|> parseIterReq
+  -- <|> parseArrayIterOpt <|> parseArrayIterReq
+  -- <|> parseDictIterOpt <|> parseDictIterReq
   nestedIdxs <- many parseDictIndexing
   return (foldr (flip Pipe) fieldIdx nestedIdxs)
 
@@ -178,24 +213,35 @@ parseRecDesc = do
   _ <- parseIndexPeriod
   return RecDesc
 
+-- JSON filter
+parseJSONFilter :: Parser Filter
+parseJSONFilter = undefined
+
 -- Main parsing function
 parseFilter :: Parser Filter
-parseFilter = parseBinaryFilters
-          <|> parseFilterNoGrouping
+parseFilter =
+  parseBinaryFilters
+    <|> parseFilterNoGrouping
+    <|> parseJSONFilter
+
 parseFilterNoGrouping :: Parser Filter
-parseFilterNoGrouping = parseRecDesc <|> parseIndexing
-          -- <|> parseArrayOptSlice <|> parseArraySlice 
-          -- <|> parseArrayOptIter <|> parseArrayIter 
-          -- <|> parseDictOptIter <|> parseDictIter 
-          <|> parseParen
-          <|> parseIdentity
+parseFilterNoGrouping =
+  parseRecDesc <|> parseIndexing
+    -- <|> parseArrayOptSlice <|> parseArraySlice
+    -- <|> parseArrayOptIter <|> parseArrayIter
+    -- <|> parseDictOptIter <|> parseDictIter
+    <|> parseParen
+    <|> parseIdentity
+
 parseIndexing :: Parser Filter
 parseIndexing = parseDictIndexing
-            -- <|> parseArrayIndexing 
+
+-- <|> parseArrayIndexing
 
 parseBinaryFilters :: Parser Filter
-parseBinaryFilters = parsePipe
-                 <|> parseComma
+parseBinaryFilters =
+  parsePipe
+    <|> parseComma
 
 parseConfig :: [String] -> Either String Config
 parseConfig s = case s of

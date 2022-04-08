@@ -83,9 +83,6 @@ string (x:xs) = do char x
                    string xs
                    return (x:xs)
 
-unicode :: Parser String
-unicode = some (sat isPrint)
-
 ident :: Parser String
 ident = do x  <- lower
            xs <- many (alphanum <|> char '_')
@@ -96,9 +93,9 @@ nat = do xs <- some digit
          return (read xs)
 
 int :: Parser Int
-int = do char '-'
+int = do sign <- char '-' <|> char '+'
          n <- nat
-         return (-n)
+         return (if sign == '-' then -n else n)
        <|> nat
 
 -- Handling spacing

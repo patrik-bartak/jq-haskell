@@ -97,8 +97,8 @@ instance Show JSON where
       fixedExpEnding = fixSignBeforeExponential possibleExpEnding
       asIntWithFixedEnding = dubStrAsInt ++ fixedExpEnding
       asFloatWithFixedEnding = dubStrWithoutExp ++ fixedExpEnding
-  show (JString str) = "\"" ++ escapeChars ['\\','\'','\"','\n','\r','\t','\b','\f','\v'] str ++ "\""
-  -- show (JString str) = "\"" ++ str ++ "\""
+  -- show (JString str) = "\"" ++ escapeChars ['\\','\'','\"','\n','\r','\t','\b','\f','\v'] str ++ "\""
+  show (JString str) = show str
   show (JBool b) = renderBool b
   show (JArray xs) = "[" ++ replaceExceptLast '\n' "\n  " (renderInnerJArray xs) ++ "]"
   show (JObject objs) = "{" ++ sorted ++ "}"

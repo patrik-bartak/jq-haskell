@@ -5,6 +5,7 @@ import Jq.Json
 import Parsing.Parsing
 import Debug.Trace
 import Numeric
+import Data.Map
 
 parseJNull :: Parser JSON
 parseJNull = do
@@ -27,7 +28,7 @@ parseJNumberDecimalDouble = do
   _ <- char '.'
   afterDecimal <- many digit
   -- Haskell cannot read doubles like 2.
-  let afterDecimalNeverNull = if null afterDecimal then "0" else afterDecimal
+  let afterDecimalNeverNull = if Prelude.null afterDecimal then "0" else afterDecimal
   let doubleAsString = show beforeDecimal ++ "." ++ afterDecimalNeverNull
   return (JNumber (read doubleAsString))
 
@@ -157,9 +158,9 @@ parseJObjectMultiple = do
   (key, singleInnerJson) <- parseJObjectKeyValPair
   innerJsons <- many parseJObjectInnerJsons
   _ <- parseJObjectClose
-  -- Add functino that only keeps last instance of duplicate keys
-  -- Maybe some hashset?
-  return (JObject ((key, singleInnerJson) : innerJsons))
+  -- only keep last instance of duplicate keys
+  let objMap = fromList ((key, singleInnerJson) : innerJsons)
+  return (JObject (toList objMap))
   where
     parseJObjectInnerJsons = do
       _ <- parseMultiValueSeperator
@@ -218,7 +219,7 @@ escape = (do
         -- should not be in JSON strings?
         -- <|> string "\\0" <|> string "\\xFF"
   return [fst (head (readLitChar escStr))])
-      <|> (do 
+      <|> (do
   s <- string "\\"
   anyChar <- sat (const False)
   return (errorWithoutStackTrace ("Invalid escape sequence: " ++ s ++ [anyChar])))
@@ -250,7 +251,7 @@ parseJString = do
 
 -- Does not work
 {- >>> parse parseJSON "\"Ну и где этот ваш хвалёный уникод?\""
-[("\1053\1091 \1080 \1075\1076\1077 \1101\1090\1086\1090 \1074\1072\1096 \1093\1074\1072\1083\1105\1085\1099\1081 \1091\1085\1080\1082\1086\1076?","")]
+C:\Users\patri\AppData\Local\Temp\extA3CE: commitBuffer: invalid argument (invalid character)
 -}
 
 -- "\"as\\\"df\"" -> [("as\"df","")] is correct

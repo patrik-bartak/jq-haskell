@@ -179,7 +179,7 @@ parseDictIndexing = do
 -- Comma
 parseComma :: Parser Filter
 parseComma = do
-  filt1 <- parseFilterNoGrouping
+  filt1 <- parsePipe <|> parseFilterNotInfix
   _ <- parseCommaSep
   filt2 <- parseFilter
   return (Comma filt1 filt2)
@@ -187,7 +187,7 @@ parseComma = do
 -- Pipe
 parsePipe :: Parser Filter
 parsePipe = do
-  filt1 <- parseFilterNoGrouping
+  filt1 <- parseComma <|> parseFilterNotInfix
   _ <- parsePipeSep
   filt2 <- parseFilter
   return (Pipe filt1 filt2)
@@ -221,11 +221,11 @@ parseJSONFilter = undefined
 parseFilter :: Parser Filter
 parseFilter =
   parseBinaryFilters
-    <|> parseFilterNoGrouping
+    <|> parseFilterNotInfix
     <|> parseJSONFilter
 
-parseFilterNoGrouping :: Parser Filter
-parseFilterNoGrouping =
+parseFilterNotInfix :: Parser Filter
+parseFilterNotInfix =
   parseRecDesc <|> parseIndexing
     -- <|> parseArrayOptSlice <|> parseArraySlice
     -- <|> parseArrayOptIter <|> parseArrayIter

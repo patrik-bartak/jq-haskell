@@ -205,12 +205,13 @@ compile (Iterator _ []) (JObject kvPairs) = return values
 -- Iterator Array Empty
 compile (Iterator _ []) (JArray values) = return values
 -- Iterator Dict
-compile (Iterator optio idxs) (JObject kvPairs) =
-  fmap concat (sequence indexedList)
-    where
-      values = map snd kvPairs
-      indexedList = map f idxs
-      f = \idx -> compile (ArrayIndexing optio (JNumberFilter (JNumber (fromIntegral idx)))) (JArray values)
+compile (Iterator _ _) (JObject _) = Left "Cannot index object with number"
+-- compile (Iterator optio idxs) (JObject kvPairs) =
+--   fmap concat (sequence indexedList)
+--     where
+--       values = map snd kvPairs
+--       indexedList = map f idxs
+--       f = \idx -> compile (ArrayIndexing optio (JNumberFilter (JNumber (fromIntegral idx)))) (JArray values)
 -- Iterator Array
 compile (Iterator optio idxs) (JArray values) =
   fmap concat (sequence indexedList)

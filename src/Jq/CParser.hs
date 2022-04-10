@@ -1,7 +1,7 @@
 module Jq.CParser where
 
 import Jq.Filters
-import Jq.JParser (parseJObjectField, parseMultiValueSeperator)
+import Jq.JParser (parseJObjectField, parseMultiValueSeperator, parseJNull, parseJNumber, parseJBool, parseJString)
 import Parsing.Parsing
 import Data.Map
 
@@ -201,6 +201,16 @@ parseFilterNotInfix = parseRecDesc
                   <|> parseParen
                   <|> parseIndexing
                   <|> parseIdentity
+                  <|> parseJSONFilters
+
+parseJSONFilters :: Parser Filter
+parseJSONFilters =
+        token parseJNullFilter
+    <|> token parseJNumberFilter
+    <|> token parseJBoolFilter
+    <|> token parseJArrayFilter
+    -- <|> token parseJObjectFilter
+    <|> token parseJStringFilter
 
 parseConfig :: [String] -> Either String Config
 parseConfig s = case s of
@@ -211,3 +221,48 @@ parseConfig s = case s of
         [] -> Right . ConfigC $ v
         _ -> Left $ "Compilation error, leftover: " ++ out
       e -> Left $ "Compilation error: " ++ show e
+
+-- Primitive value constructors
+parseJNullFilter :: Parser Filter
+parseJNullFilter = JNullFilter <$> parseJNull
+parseJNumberFilter :: Parser Filter
+parseJNumberFilter = JNullFilter <$> parseJNumber
+parseJBoolFilter :: Parser Filter
+parseJBoolFilter = JNullFilter <$> parseJBool
+parseJStringFilter :: Parser Filter
+parseJStringFilter = JNullFilter <$> parseJString
+
+-- JArray value constructor
+parseJArrayFilter :: Parser Filter
+parseJArrayFilter = parseJArrayFilterEmpty <|> parseJArrayFilterSingleton <|> parseJArrayFilterMultiple
+
+parseJArrayFilterOpen :: Parser Char
+parseJArrayFilterOpen = char '['
+
+parseJArrayFilterClose :: Parser Char
+parseJArrayFilterClose = char ']'
+
+parseJArrayFilterEmpty :: Parser Filter
+parseJArrayFilterEmpty = do
+  _ <- parseJArrayFilterOpen
+  _ <- parseJArrayFilterClose
+  return (JArrayFilter [])
+
+parseJArrayFilterSingleton :: Parser Filter
+parseJArrayFilterSingleton = do
+  _ <- parseJArrayFilterOpen
+  singleInnerJson <- parseFilter
+  _ <- parseJArrayFilterClose
+  return (JArrayFilter [singleInnerJson])
+
+parseJArrayFilterMultiple :: Parser Filter
+parseJArrayFilterMultiple = do
+  _ <- parseJArrayFilterOpen
+  singleInnerJson <- parseFilter
+  innerJsons <- many parseInnerJsons
+  _ <- parseJArrayFilterClose
+  return (JArrayFilter (singleInnerJson : innerJsons))
+  where
+    parseInnerJsons = do
+      _ <- parseMultiValueSeperator
+      parseFilter

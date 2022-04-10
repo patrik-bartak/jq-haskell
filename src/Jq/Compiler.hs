@@ -24,13 +24,13 @@ normalizeIndex idx xs
 
 compile :: Filter -> JProgram [JSON]
 -- DictIdenIndexing Req
-compile (DictIdenIndexing Req _) JNull = Left "Cannot DictIndex null"
+compile (DictIdenIndexing Req _) JNull = return [JNull]
 compile (DictIdenIndexing Req _) (JNumber _) = Left "Cannot DictIndex number"
 compile (DictIdenIndexing Req _) (JString _) = Left "Cannot DictIndex string"
 compile (DictIdenIndexing Req _) (JBool _) = Left "Cannot DictIndex bool"
 compile (DictIdenIndexing Req _) (JArray _) = Left "Cannot DictIndex array"
 -- DictIdenIndexing Opt
-compile (DictIdenIndexing Opt _) JNull = return []
+compile (DictIdenIndexing Opt _) JNull = return [JNull]
 compile (DictIdenIndexing Opt _) (JNumber _) = return []
 compile (DictIdenIndexing Opt _) (JString _) = return []
 compile (DictIdenIndexing Opt _) (JBool _) = return []
@@ -41,13 +41,13 @@ compile (DictIdenIndexing optio fieldIdx) (JObject ((field, value) : xs))
   | fieldIdx == field = return [value]
   | otherwise = compile (DictIdenIndexing optio fieldIdx) (JObject xs)
 -- DictGenIndexing Req
-compile (DictGenIndexing Req _) JNull = Left "Cannot DictIndex null"
+compile (DictGenIndexing Req _) JNull = return [JNull]
 compile (DictGenIndexing Req _) (JNumber _) = Left "Cannot DictIndex number"
 compile (DictGenIndexing Req _) (JString _) = Left "Cannot DictIndex string"
 compile (DictGenIndexing Req _) (JBool _) = Left "Cannot DictIndex bool"
 compile (DictGenIndexing Req _) (JArray _) = Left "Cannot DictIndex array"
 -- DictGenIndexing Opt
-compile (DictGenIndexing Opt _) JNull = return []
+compile (DictGenIndexing Opt _) JNull = return [JNull]
 compile (DictGenIndexing Opt _) (JNumber _) = return []
 compile (DictGenIndexing Opt _) (JString _) = return []
 compile (DictGenIndexing Opt _) (JBool _) = return []
@@ -60,13 +60,13 @@ compile (DictGenIndexing optio fieldIdxs) (JObject kvPairs) =
       indexedList = map f fieldIdxs
       f = \fieldIdx -> compile (DictIdenIndexing optio fieldIdx) (JObject kvPairs)
 -- ArrayIndexing Req
-compile (ArrayIndexing Req _) JNull = Left "Cannot ArrayIndex null"
+compile (ArrayIndexing Req _) JNull = return [JNull]
 compile (ArrayIndexing Req _) (JNumber _) = Left "Cannot ArrayIndex number"
 compile (ArrayIndexing Req _) (JString _) = Left "Cannot ArrayIndex string"
 compile (ArrayIndexing Req _) (JBool _) = Left "Cannot ArrayIndex bool"
 compile (ArrayIndexing Req _) (JObject _) = Left "Cannot ArrayIndex object"
 -- ArrayIndexing Opt
-compile (ArrayIndexing Opt _) JNull = return []
+compile (ArrayIndexing Opt _) JNull = return [JNull]
 compile (ArrayIndexing Opt _) (JNumber _) = return []
 compile (ArrayIndexing Opt _) (JString _) = return []
 compile (ArrayIndexing Opt _) (JBool _) = return []
@@ -85,12 +85,12 @@ compile (ArrayIndexing optio idx) (JArray (x : xs))
   where
     norm_idx = normalizeIndex idx (x : xs)
 -- ArraySlice Req
-compile (ArraySlice Req _ _) JNull = Left "Cannot ArraySlice null"
+compile (ArraySlice Req _ _) JNull = return [JNull]
 compile (ArraySlice Req _ _) (JNumber _) = Left "Cannot ArraySlice number"
 compile (ArraySlice Req _ _) (JBool _) = Left "Cannot ArraySlice bool"
 compile (ArraySlice Req _ _) (JObject _) = Left "Cannot ArraySlice object"
 -- ArraySlice Opt
-compile (ArraySlice Opt _ _) JNull = return []
+compile (ArraySlice Opt _ _) JNull = return [JNull]
 compile (ArraySlice Opt _ _) (JNumber _) = return []
 compile (ArraySlice Opt _ _) (JBool _) = return []
 compile (ArraySlice Opt _ _) (JObject _) = return []
@@ -125,14 +125,14 @@ compile (Iterator _ []) (JObject kvPairs) = return values
 -- Iterator Array Empty
 compile (Iterator _ []) (JArray values) = return values
 -- Iterator Dict
-compile (Iterator optio idxs) (JObject kvPairs) = 
+compile (Iterator optio idxs) (JObject kvPairs) =
   fmap concat (sequence indexedList)
     where
       values = map snd kvPairs
       indexedList = map f idxs
       f = \idx -> compile (ArrayIndexing optio idx) (JArray values)
 -- Iterator Array
-compile (Iterator optio idxs) (JArray values) = 
+compile (Iterator optio idxs) (JArray values) =
   fmap concat (sequence indexedList)
     where
       indexedList = map f idxs
@@ -166,6 +166,14 @@ compile RecDesc (JObject kvpairs) = do
   return (JObject kvpairs : concat deeper)
 -- RecDesc other JSONs
 compile RecDesc inp = return [inp]
+
+compile (JArrayFilter fltrs) inp = do
+  jsons <- fmap concat (mapM (`compile` inp) fltrs)
+  return [JArray jsons]
+compile (JNullFilter jNull) _ = return [jNull]
+compile (JNumberFilter jNumber) _ = return [jNumber]
+compile (JBoolFilter jBool) _ = return [jBool]
+compile (JStringFilter jString) _ = return [jString]
 
 run :: JProgram [JSON] -> JSON -> Either String [JSON]
 -- run p j = p j

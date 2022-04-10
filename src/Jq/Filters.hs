@@ -19,7 +19,13 @@ data Filter
   | RecDesc -- done
   | Pipe Filter Filter -- done
   | Comma Filter Filter -- done
-  -- | JsonFilter JSON -- value constructors not done
+  -- value constructors (not done)
+  | JNullFilter JSON
+  | JNumberFilter JSON
+  | JStringFilter JSON
+  | JBoolFilter JSON
+  | JArrayFilter [Filter]
+  | JObjectFilter [(String, JSON)]
   deriving (Eq)
 
 instance Show Filter where
@@ -46,6 +52,8 @@ instance Show Filter where
   -- Pipe, Comma
   show (Pipe f1 f2) = show f1 ++ "|" ++ show f2
   show (Comma f1 f2) = show f1 ++ "," ++ show f2
+  -- Value constructors
+  show (JArrayFilter fs) = show fs
 
 -- instance Eq Filter where
 --   -- Identity, Parentheses

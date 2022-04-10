@@ -3,21 +3,12 @@ module Jq.JParser where
 import Data.Char
 import Jq.Json
 import Parsing.Parsing
-import Debug.Trace
 import Numeric
-import Data.Map
 
 parseJNull :: Parser JSON
 parseJNull = do
   _ <- string "null" <|> string "Nan" <|> string "NAn" <|> string "NaN" <|> string "NAN"
   return JNull
-
--- decInt :: Parser JSON
--- decInt = do
---   val <- int
---   _ <- char '.'
---   _ <- many (char '0')
---   return (JNumber (Left val))
 
 parseJNumberInt :: Parser Int
 parseJNumberInt = int
@@ -184,22 +175,6 @@ parseJObject = parseJObjectEmpty <|> parseJObjectSingleton <|> parseJObjectMulti
   ]
 },"")]
 -}
-
--- unicode :: Parser String
--- unicode = some (sat isLetter <|> sat isSpace <|> sat isMark <|> sat isSymbol <|> sat isSeparator <|> sat isPunctuation)
-
--- innerJString :: Parser String
--- innerJString = some (alphanum <|> char '_' <|> char '.' <|> char ',' <|> char ' ' <|> char '{' <|> char '}' <|> char ':' <|> sat isSymbol <|> sat isSeparator)
---     -- <|> sat isPrint
--- -- innerJString = some (sat (const True))
--- innerJStringEscaped :: Parser String
--- innerJStringEscaped = string "\\\"" <|> string "\\n" <|> string "\\t" <|> string "\\r" <|> string "\\f" <|> string "\\v" <|> string "\\b"
---                        <|> string "\\\\"
-
--- readHexParser :: Parser Int
--- readHexParser = do
---   num <- readHex
---   return num
 
 unicode :: Parser String
 unicode = do

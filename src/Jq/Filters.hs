@@ -48,8 +48,8 @@ instance Show Filter where
   -- RecDesc
   show RecDesc = ".."
   -- Pipe, Comma
-  show (Pipe f1 f2) = show f1 ++ " | " ++ show f2
-  show (Comma f1 f2) = show f1 ++ ", " ++ show f2
+  show (Pipe f1 f2) = show f1 ++ "|" ++ show f2
+  show (Comma f1 f2) = show f1 ++ "," ++ show f2
 
 -- instance Eq Filter where
 --   -- Identity, Parentheses

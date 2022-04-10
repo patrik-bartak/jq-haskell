@@ -3,6 +3,9 @@ module Jq.CParser where
 import Jq.Filters
 import Jq.JParser (parseJObjectField)
 import Parsing.Parsing
+import Data.Map
+import Data.Sequence
+
 
 parseIndexPeriod :: Parser Char
 parseIndexPeriod = token (char '.')
@@ -133,7 +136,7 @@ parseDictIndexing = do
   -- <|> parseArrayIterOpt <|> parseArrayIterReq
   -- <|> parseDictIterOpt <|> parseDictIterReq
   nestedIdxs <- many parseDictIndexing
-  return (foldr (flip Pipe) fieldIdx nestedIdxs)
+  return (Prelude.foldr (flip Pipe) fieldIdx nestedIdxs)
 
 -- >>> parse parseFilter ".foo.[5].[\"bar\"].[4:5]"
 -- [(. | foo | . | [5] | . | ["bar"] | . | [4:5],"")]
@@ -179,18 +182,28 @@ parseDictIndexing = do
 -- Comma
 parseComma :: Parser Filter
 parseComma = do
-  filt1 <- parsePipe <|> parseFilterNotInfix
+  filt1 <- parseFilterNotInfix -- all but pipe and comma
   _ <- parseCommaSep
-  filt2 <- parseFilter
-  return (Comma filt1 filt2)
+  filt2 <- parseComma <|> parseFilterNotInfix -- all but pipe (pipe has lower precedence)
+  return (Paren (Comma filt1 filt2))
 
 -- Pipe
 parsePipe :: Parser Filter
 parsePipe = do
-  filt1 <- parseComma <|> parseFilterNotInfix
+  filt1 <- parseComma <|> parseFilterNotInfix -- all but pipe (prevent infinite loop)
   _ <- parsePipeSep
   filt2 <- parseFilter
-  return (Pipe filt1 filt2)
+  return (Paren (Pipe filt1 filt2))
+
+-- >>> parse parseFilter ".|.,.|."
+-- [((.|((.,.)|.)),"")]
+
+-- should be (.|(.,.)|.))
+
+-- >>> parse parseFilter ".,.|.,."
+-- [(((.,.)|(.,.)),"")]
+
+-- should be (.,.)|(.,.)
 
 -- Paren
 parseParen :: Parser Filter
@@ -219,8 +232,8 @@ parseJSONFilter = undefined
 
 -- Main parsing function
 parseFilter :: Parser Filter
-parseFilter =
-  parseBinaryFilters
+parseFilter = 
+  parseInfixFilters
     <|> parseFilterNotInfix
     <|> parseJSONFilter
 
@@ -236,10 +249,8 @@ parseFilterNotInfix =
 parseIndexing :: Parser Filter
 parseIndexing = parseDictIndexing
 
--- <|> parseArrayIndexing
-
-parseBinaryFilters :: Parser Filter
-parseBinaryFilters =
+parseInfixFilters :: Parser Filter
+parseInfixFilters =
   parsePipe
     <|> parseComma
 
@@ -252,3 +263,44 @@ parseConfig s = case s of
         [] -> Right . ConfigC $ v
         _ -> Left $ "Compilation error, leftover: " ++ out
       e -> Left $ "Compilation error: " ++ show e
+
+operatorPrecedence :: Map Char Int
+operatorPrecedence = Data.Map.fromList [('|',1), (',',2)]
+
+stack :: Seq Char
+stack = Data.Sequence.empty
+
+queue :: Seq Char
+queue = Data.Sequence.empty
+
+infixToPostfix :: Parser String
+infixToPostfix = do
+  strs <- many (pipe <|> comma)
+  return (concat strs)
+
+primitive :: Parser String
+primitive = do 
+  x <- alphanum <|> char '.'
+  return [x]
+
+comma :: Parser String
+comma = do
+  l <- primitive
+  op <- char ','
+  r <- comma <|> primitive
+  return ("(" ++ l ++ [op] ++ r ++ ")")
+pipe :: Parser String
+pipe = do
+  l <- comma <|> primitive
+  op <- char '|'
+  r <-  pipe <|> comma <|> primitive
+  return ("(" ++ l ++ [op] ++ r ++ ")")
+
+-- >>> parse infixToPostfix ".,.|.,.|."
+-- [("((.,.)|((.,.)|.))","")]
+
+-- >>> parse parseFilter ".|.,.|."
+-- [((.|(.,(.|.))),"")]
+
+-- >>> parse parseFilter ".,.|.,."
+-- [((.,(.|(.,.))),"")]

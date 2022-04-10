@@ -7,7 +7,6 @@ import Jq.Compiler
 import System.Environment (getArgs)
 
 import Control.Arrow (left)
-import Debug.Trace
 
 readInput :: IO String
 readInput = getContents

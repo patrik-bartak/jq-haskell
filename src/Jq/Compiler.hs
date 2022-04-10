@@ -233,13 +233,11 @@ compile (Paren filt) inp = compile filt inp
 -- Identity
 compile Identity inp = return [inp]
 -- RecDesc JArray
-compile RecDesc (JArray []) = return []
 compile RecDesc (JArray jsons) = do
   -- deeper <- sequence (fmap (compile RecDesc) jsons)
   deeper <- mapM (compile RecDesc) jsons
   return (JArray jsons : concat deeper)
 -- RecDesc JObject
-compile RecDesc (JObject []) = return []
 compile RecDesc (JObject kvpairs) = do
   -- deeper <- sequence (fmap (compile RecDesc) (map snd kvpairs))
   deeper <- mapM (compile RecDesc . snd) kvpairs

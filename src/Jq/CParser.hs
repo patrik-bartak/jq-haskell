@@ -175,7 +175,7 @@ parseFilter = parseInfixLevel 0
 
 -- Recursive descent infix precedence
 parseInfixLevel :: Int -> Parser Filter
-parseInfixLevel n = case lookup n infixPrecedenceMap of 
+parseInfixLevel n = case lookup n infixPrecedenceMap of
   Just parser -> parser <|> parseInfixLevel (n+1)
   Nothing -> parseFilterNotInfix
 
@@ -185,7 +185,10 @@ infixPrecedenceMap = fromList [
     (0, parsePipe),
     (1, parseComma),
     (2, parseEquals),
-    (3, parseNotEquals)
+    (3, parseNotEquals),
+    (4, parseLogicalOr),
+    (5, parseLogicalAnd),
+    (6, parseLogicalNot)
   ]
 
 parseFilterNotInfix :: Parser Filter
@@ -275,34 +278,67 @@ parseJArrayFilterMultiple = do
 -- Pipe - 0
 parsePipe :: Parser Filter
 parsePipe = do
-  filt1 <- parseInfixLevel 1
-  _ <- parsePipeSep
-  filt2 <- parseInfixLevel 0
+  let opPrec = 0
+  filt1 <- parseInfixLevel (opPrec + 1)
+  _ <- token parsePipeSep
+  filt2 <- parseInfixLevel opPrec
   return (Paren (Pipe filt1 filt2))
 
 -- Comma - 1
 parseComma :: Parser Filter
 parseComma = do
-  filt1 <- parseInfixLevel 2
-  _ <- parseCommaSep
-  filt2 <- parseInfixLevel 1
+  let opPrec = 1
+  filt1 <- parseInfixLevel (opPrec + 1)
+  _ <- token parseCommaSep
+  filt2 <- parseInfixLevel opPrec
   return (Paren (Comma filt1 filt2))
 
 -- Equals - 2
 parseEquals :: Parser Filter
 parseEquals = do
-  left <- parseInfixLevel 3
-  _ <- string "=="
-  right <- parseInfixLevel 2
+  let opPrec = 2
+  left <- parseInfixLevel (opPrec + 1)
+  _ <- token (string "==")
+  right <- parseInfixLevel opPrec
   return (Paren (Equals left right))
 
 -- NotEquals - 3
 parseNotEquals :: Parser Filter
 parseNotEquals = do
-  left <- parseInfixLevel 4
-  _ <- string "!="
-  right <- parseInfixLevel 3
+  let opPrec = 3
+  left <- parseInfixLevel (opPrec + 1)
+  _ <- token (string "!=")
+  right <- parseInfixLevel opPrec
   return (Paren (NotEquals left right))
+
+-- LogicalOr - 4
+parseLogicalOr :: Parser Filter
+parseLogicalOr = do
+  let opPrec = 4
+  left <- parseInfixLevel (opPrec + 1)
+  _ <- token (string "or")
+  right <- parseInfixLevel opPrec
+  return (Paren (LogicalOr left right))
+
+-- LogicalAnd - 5
+parseLogicalAnd :: Parser Filter
+parseLogicalAnd = do
+  let opPrec = 5
+  left <- parseInfixLevel (opPrec + 1)
+  _ <- token (string "and")
+  right <- parseInfixLevel opPrec
+  return (Paren (LogicalAnd left right))
+
+-- LogicalAnd - 6
+parseLogicalNot :: Parser Filter
+parseLogicalNot = do
+  _ <- token (string "not")
+  return (Paren LogicalNot)
+
+-- >>> parse parseFilter "true and true or true and true"
+-- [(((true and true) or (true and true)),"")]
+
+-- should be ((true and true) or (true and true))
 
 
 

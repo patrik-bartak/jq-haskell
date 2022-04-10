@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use record patterns" #-}
+{-# HLINT ignore "Eta reduce" #-}
 
 module Jq.Compiler where
 
@@ -178,8 +179,32 @@ compile (JStringFilter jString) _ = return [jString]
 compile (Equals filt1 filt2) inp = do
   res1 <- compile filt1 inp
   res2 <- compile filt2 inp
-  return [JBool (res1 == res2)]
+  return (fmap JBool ((==) <$> res1 <*> res2))
+compile (NotEquals filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return (fmap JBool ((/=) <$> res1 <*> res2))
+compile (LogicalAnd filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return (fmap JBool (logicalMatchJson (&&) <$> res1 <*> res2))
+compile (LogicalOr filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return (fmap JBool (logicalMatchJson (||) <$> res1 <*> res2))
+compile LogicalNot json = Right [JBool (not (getJsonTruthValue json))]
 
 run :: JProgram [JSON] -> JSON -> Either String [JSON]
--- run p j = p j
-run p = p
+run p j = p j
+
+logicalMatchJson :: (Bool -> Bool -> Bool) -> JSON -> JSON -> Bool
+logicalMatchJson op json1 json2 = case (getJsonTruthValue json1, getJsonTruthValue json2) of
+  (b1, b2) -> op b1 b2
+
+getJsonTruthValue :: JSON -> Bool
+getJsonTruthValue JNull = False
+getJsonTruthValue (JNumber _) = True
+getJsonTruthValue (JString _) = True
+getJsonTruthValue (JBool bool) = bool
+getJsonTruthValue (JArray _) = True
+getJsonTruthValue (JObject _) = True

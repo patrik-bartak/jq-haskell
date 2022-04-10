@@ -2,9 +2,6 @@ module Jq.Filters where
 
 import Jq.Json
 
-data IndexType = Iden | Gen
-  deriving (Eq)
-
 data Optionality = Opt | Req
   deriving (Eq)
 
@@ -14,16 +11,15 @@ data Filter
   = Identity -- done
   | Paren Filter -- done
   {- most done - check if name parsing and edge cases with and without identity (.foo vs foo) are ok -}
-  | DictIndexing IndexType Optionality String
+  | DictIdenIndexing Optionality String
+  | DictGenIndexing Optionality [String]
   | ArrayIndexing Optionality Int -- done
   | ArraySlice Optionality Int Int -- done
-  | Iter Optionality [Int]
-  | -- | ArrayIter Optionality [Int]
-    -- | DictIter Optionality [Int]
-    RecDesc -- done
+  | Iterator Optionality [Int]
+  | RecDesc -- done
   | Pipe Filter Filter -- done
   | Comma Filter Filter -- done
-  | JsonFilter JSON -- value constructors not done
+  -- | JsonFilter JSON -- value constructors not done
   deriving (Eq)
 
 instance Show Filter where
@@ -31,11 +27,11 @@ instance Show Filter where
   show Identity = "."
   show (Paren filt) = "(" ++ show filt ++ ")"
   -- Dict Indexing
-  show (DictIndexing Iden Req field) = "" ++ field
-  show (DictIndexing Iden Opt field) = "" ++ field ++ "?"
+  show (DictIdenIndexing Req field) = "" ++ field
+  show (DictIdenIndexing Opt field) = "" ++ field ++ "?"
   -- Dict Generic Indexing
-  show (DictIndexing Gen Req field) = "[\"" ++ field ++ "\"]"
-  show (DictIndexing Gen Opt field) = "[\"" ++ field ++ "\"]?"
+  show (DictGenIndexing Req fields) = show fields
+  show (DictGenIndexing Opt fields) = show fields ++ "?"
   -- Array Indexing
   show (ArrayIndexing Req idx) = "[" ++ show idx ++ "]"
   show (ArrayIndexing Opt idx) = "[" ++ show idx ++ "]?"
@@ -43,8 +39,8 @@ instance Show Filter where
   show (ArraySlice Req lo hi) = "[" ++ show lo ++ ":" ++ show hi ++ "]"
   show (ArraySlice Opt lo hi) = "[" ++ show lo ++ ":" ++ show hi ++ "]?"
   -- Iterators
-  show (Iter Req idxs) = show idxs
-  show (Iter Opt idxs) = show idxs ++ "?"
+  show (Iterator Req idxs) = show idxs
+  show (Iterator Opt idxs) = show idxs ++ "?"
   -- RecDesc
   show RecDesc = ".."
   -- Pipe, Comma
@@ -56,7 +52,7 @@ instance Show Filter where
 --   Identity == Identity                              = True
 --   (Paren f1) == (Paren f2)                          = f1 == f2
 --   -- Dict Indexing
---   (DictIndexing field1) == (DictIndexing field2)    = field1 == field2
+--   (DictIdenIndexing field1) == (DictIdenIndexing field2)    = field1 == field2
 --   (DictOptIndexing field1) == (DictOptIndexing field2) = field1 == field2
 --   -- Dict Generic Indexing
 --   (DictGenIndexing field1) == (DictGenIndexing field2) = field1 == field2
@@ -76,7 +72,7 @@ filterIdentitySC :: Filter
 filterIdentitySC = Identity
 
 filterIndexingSC :: String -> Filter
-filterIndexingSC = DictIndexing Iden Req
+filterIndexingSC = DictIdenIndexing Req
 
 filterPipeSC :: Filter -> Filter -> Filter
 filterPipeSC = Pipe

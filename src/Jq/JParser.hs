@@ -159,8 +159,9 @@ parseJObjectMultiple = do
   innerJsons <- many parseJObjectInnerJsons
   _ <- parseJObjectClose
   -- only keep last instance of duplicate keys
-  let objMap = fromList ((key, singleInnerJson) : innerJsons)
-  return (JObject (toList objMap))
+  -- let objMap = fromList ((key, singleInnerJson) : innerJsons)
+  -- return (JObject (toList objMap))
+  return (JObject ((key, singleInnerJson) : innerJsons))
   where
     parseJObjectInnerJsons = do
       _ <- parseMultiValueSeperator

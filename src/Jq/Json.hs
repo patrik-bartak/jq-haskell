@@ -102,8 +102,9 @@ instance Show JSON where
   show (JArray xs) = "[" ++ replaceExceptLast '\n' "\n  " (renderInnerJArray xs) ++ "]"
   show (JObject objs) = "{" ++ sorted ++ "}"
     where
-      sorted = replaceExceptLast '\n' "\n  " (renderInnerJObject (mergeSort sortFunction objs))
-      sortFunction = \x y -> compare (fst x) (fst y)
+      -- sorted = replaceExceptLast '\n' "\n  " (renderInnerJObject (mergeSort sortFunction objs))
+      sorted = replaceExceptLast '\n' "\n  " (renderInnerJObject objs)
+      -- sortFunction = \x y -> compare (fst x) (fst y)
 
 fixSignBeforeExponential :: [Char] -> [Char]
 fixSignBeforeExponential [] = []

@@ -4,6 +4,7 @@ import Data.Char
 import Jq.Json
 import Parsing.Parsing
 import Numeric
+import Data.Set
 
 parseJNull :: Parser JSON
 parseJNull = do
@@ -150,13 +151,19 @@ parseJObjectMultiple = do
   innerJsons <- many parseJObjectInnerJsons
   _ <- parseJObjectClose
   -- only keep last instance of duplicate keys
-  -- let objMap = fromList ((key, singleInnerJson) : innerJsons)
-  -- return (JObject (toList objMap))
-  return (JObject ((key, singleInnerJson) : innerJsons))
+  let parsedPairs = reverse ((key, singleInnerJson) : innerJsons)
+  let uniquePairs = reverse (removeJObjectDuplicates parsedPairs Data.Set.empty)
+  return (JObject uniquePairs)
   where
     parseJObjectInnerJsons = do
       _ <- parseMultiValueSeperator
       parseJObjectKeyValPair
+
+removeJObjectDuplicates :: [(String, JSON)] -> Set String -> [(String, JSON)]
+removeJObjectDuplicates [] _ = []
+removeJObjectDuplicates ((key, value):kvPairs) set
+  | member key set = removeJObjectDuplicates kvPairs set
+  | otherwise      = (key, value) : removeJObjectDuplicates kvPairs (insert key set)
 
 parseJObject :: Parser JSON
 parseJObject = parseJObjectEmpty <|> parseJObjectSingleton <|> parseJObjectMultiple

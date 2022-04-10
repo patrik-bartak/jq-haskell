@@ -97,7 +97,8 @@ compile (ArrayIndexing Req (JObjectFilter _)) _  = Left "Index must be number" -
 compile (ArrayIndexing Opt (JNullFilter _)) _    = return []
 compile (ArrayIndexing Opt (JBoolFilter _)) _    = return []
 compile (ArrayIndexing Opt (JObjectFilter _)) _  = return []
-compile (ArrayIndexing _ (JArrayFilter (fltr:_))) inp  = compile fltr inp
+compile (ArrayIndexing _ (JArrayFilter fltrs)) inp  = compile (JArrayFilter fltrs) inp
+-- compile (ArrayIndexing _ (JArrayFilter (fltr:_))) inp  = compile fltr inp
 -- ArrayIndexing All
 compile (ArrayIndexing _ _) (JArray []) = return [JNull]
 compile (ArrayIndexing optio (JNumberFilter (JNumber idx))) (JArray (x : xs))
@@ -142,10 +143,10 @@ compile (ArraySlice Opt _ (Just (JArrayFilter _))) _  = return []
 -- ArraySlice JString
 -- JSON Filter values
 -- Desugar left open
-compile (ArraySlice optio Nothing filt2) (JString xs) = 
+compile (ArraySlice optio Nothing filt2) (JString xs) =
   compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JString xs)
 -- Desugar right open
-compile (ArraySlice optio filt1 Nothing) (JString xs) = 
+compile (ArraySlice optio filt1 Nothing) (JString xs) =
   compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JString xs)
 -- Evaluate
 compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (JNumber hi)))) (JString xs)
@@ -166,10 +167,10 @@ compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) (JString xs) = do
 -- ArraySlice JArray
 -- JSON Filter values
 -- Desugar left open
-compile (ArraySlice optio Nothing filt2) (JArray xs) = 
+compile (ArraySlice optio Nothing filt2) (JArray xs) =
   compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JArray xs)
 -- Desugar right open
-compile (ArraySlice optio filt1 Nothing) (JArray xs) = 
+compile (ArraySlice optio filt1 Nothing) (JArray xs) =
   compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JArray xs)
 -- Evaluate
 compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (JNumber hi)))) (JArray xs)

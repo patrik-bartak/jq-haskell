@@ -90,10 +90,12 @@ compile (ArrayIndexing Opt _) (JObject _) = return []
 --   | otherwise    = compile (ArrayIndexing optio (-(idx + 1))) (JString (reverse xs))
 -- ArraySlice range Req
 compile (ArrayIndexing Req (JNullFilter _)) _    = Left "Index must be number"
+compile (ArrayIndexing Req (JStringFilter _)) _  = Left "Index must be number"
 compile (ArrayIndexing Req (JBoolFilter _)) _    = Left "Index must be number"
-compile (ArrayIndexing Req (JObjectFilter _)) _  = Left "Index must be number" -- Maybe possible?
+compile (ArrayIndexing Req (JObjectFilter _)) _  = Left "Index must be number"
 -- ArraySlice range Opt
 compile (ArrayIndexing Opt (JNullFilter _)) _    = return []
+compile (ArrayIndexing Opt (JStringFilter _)) _  = return []
 compile (ArrayIndexing Opt (JBoolFilter _)) _    = return []
 compile (ArrayIndexing Opt (JObjectFilter _)) _  = return []
 compile (ArrayIndexing _ (JArrayFilter fltrs)) inp  = compile (JArrayFilter fltrs) inp

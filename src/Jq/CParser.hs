@@ -62,11 +62,11 @@ parseArrayOpt = do
   opt <- parseOrElse parseOptional '!'
   return (if opt == '?' then ArrayIndexing Opt idx else ArrayIndexing Req idx)
 
-parseInnerSlice :: Parser (Int, Int)
+parseInnerSlice :: Parser (Filter, Filter)
 parseInnerSlice = do
-  lo <- int
+  lo <- parseFilter
   _ <- parseSliceSep
-  hi <- int
+  hi <- parseFilter
   return (lo, hi)
 
 parseSlice :: Parser Filter
@@ -76,6 +76,9 @@ parseSlice = do
   _ <- parseIndexingClose
   opt <- parseOrElse parseOptional '!'
   return (if opt == '?' then ArraySlice Opt lo hi else ArraySlice Req lo hi)
+
+-- >>> parse parseFilter ".[1:2]"
+-- [(([1:2]|.),"")]
 
 -- Identity
 parseIdentity :: Parser Filter
@@ -218,11 +221,11 @@ parseConfig s = case s of
 parseJNullFilter :: Parser Filter
 parseJNullFilter = JNullFilter <$> parseJNull
 parseJNumberFilter :: Parser Filter
-parseJNumberFilter = JNullFilter <$> parseJNumber
+parseJNumberFilter = JNumberFilter <$> parseJNumber
 parseJBoolFilter :: Parser Filter
-parseJBoolFilter = JNullFilter <$> parseJBool
+parseJBoolFilter = JBoolFilter <$> parseJBool
 parseJStringFilter :: Parser Filter
-parseJStringFilter = JNullFilter <$> parseJString
+parseJStringFilter = JStringFilter <$> parseJString
 
 -- JArray value constructor
 parseJArrayFilter :: Parser Filter

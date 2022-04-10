@@ -13,9 +13,9 @@ data Filter
   {- most done - check if name parsing and edge cases with and without identity (.foo vs foo) are ok -}
   | DictIdenIndexing Optionality String
   | DictGenIndexing Optionality [String]
-  | ArrayIndexing Optionality Int -- done
-  | ArraySlice Optionality Int Int -- done
-  | Iterator Optionality [Int]
+  | ArrayIndexing Optionality Int -- can be filter
+  | ArraySlice Optionality Filter Filter -- can be filter
+  | Iterator Optionality [Int] -- can be filter
   | RecDesc -- done
   | Pipe Filter Filter -- done
   | Comma Filter Filter -- done

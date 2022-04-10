@@ -7,6 +7,7 @@ module Jq.Compiler where
 
 import Jq.Filters
 import Jq.Json
+import Debug.Trace
 
 type JProgram a = JSON -> Either String a
 
@@ -95,20 +96,59 @@ compile (ArraySlice Opt _ _) JNull = return [JNull]
 compile (ArraySlice Opt _ _) (JNumber _) = return []
 compile (ArraySlice Opt _ _) (JBool _) = return []
 compile (ArraySlice Opt _ _) (JObject _) = return []
--- ArraySlice String
-compile (ArraySlice _ _ _) (JString []) = return [JString []]
-compile (ArraySlice _ lo hi) (JString xs)
+-- ArraySlice range Req
+compile (ArraySlice Req (JNullFilter _) _) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (JNullFilter _)) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req (JBoolFilter _) _) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (JBoolFilter _)) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req (JObjectFilter _) _) _  = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (JObjectFilter _)) _  = Left "Slice bounds must be numbers"
+compile (ArraySlice Req (JArrayFilter _) _) _  = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (JArrayFilter _)) _  = Left "Slice bounds must be numbers"
+-- ArraySlice range Opt
+compile (ArraySlice Opt (JNullFilter _) _) _    = return []
+compile (ArraySlice Opt _ (JNullFilter _)) _    = return []
+compile (ArraySlice Opt (JBoolFilter _) _) _    = return []
+compile (ArraySlice Opt _ (JBoolFilter _)) _    = return []
+compile (ArraySlice Opt (JObjectFilter _) _) _  = return []
+compile (ArraySlice Opt _ (JObjectFilter _)) _  = return []
+compile (ArraySlice Opt (JArrayFilter _) _) _  = return []
+compile (ArraySlice Opt _ (JArrayFilter _)) _  = return []
+---------------------------------------------------------------------------------------------------------------------------------------
+-- ArraySlice JString
+-- JSON Filter values
+compile (ArraySlice _ (JNumberFilter (JNumber lo)) (JNumberFilter (JNumber hi))) (JString xs)
   | norm_hi <= norm_lo = return [JString []]
   | otherwise = return [JString (sliceList xs norm_lo norm_hi)]
   where
-    (norm_lo, norm_hi) = normalizeIndices (lo, hi) xs
--- ArraySlice All
-compile (ArraySlice _ _ _) (JArray []) = return [JArray []]
-compile (ArraySlice _ lo hi) (JArray xs)
+    (int_lo, int_hi) = (round lo, round hi)
+    (norm_lo, norm_hi) = normalizeIndices (int_lo, int_hi) xs
+-- Unevaluated Filters
+compile (ArraySlice optio lo_filt hi_filt) (JString xs) = do
+  eval_lo <- compile lo_filt (JString xs)
+  eval_hi <- compile hi_filt (JString xs)
+  let sliceTupleCombinations = (,) <$> eval_lo <*> eval_hi
+  let sliceTupleFilters = fmap (\(j1, j2) -> (getFilterFromJson j1, getFilterFromJson j2)) sliceTupleCombinations
+  let something = [ compile (ArraySlice optio lo_json hi_json) (JString xs) | (lo_json, hi_json) <- sliceTupleFilters]
+  fmap concat (sequence something)
+---------------------------------------------------------------------------------------------------------------------------------------
+-- ArraySlice JArray
+-- JSON Filter values
+compile (ArraySlice _ (JNumberFilter (JNumber lo)) (JNumberFilter (JNumber hi))) (JArray xs)
   | norm_hi <= norm_lo = return [JArray []]
   | otherwise = return [JArray (sliceList xs norm_lo norm_hi)]
   where
-    (norm_lo, norm_hi) = normalizeIndices (lo, hi) xs
+    (int_lo, int_hi) = (round lo, round hi)
+    (norm_lo, norm_hi) = normalizeIndices (int_lo, int_hi) xs
+-- Unevaluated Filters
+compile (ArraySlice optio lo_filt hi_filt) (JArray xs) = do
+  eval_lo <- compile lo_filt (JArray xs)
+  eval_hi <- compile hi_filt (JArray xs)
+  let sliceTupleCombinations = (,) <$> eval_lo <*> eval_hi
+  let sliceTupleFilters = fmap (\(j1, j2) -> (getFilterFromJson j1, getFilterFromJson j2)) sliceTupleCombinations
+  let something = [ compile (ArraySlice optio lo_json hi_json) (JArray xs) | (lo_json, hi_json) <- sliceTupleFilters]
+  fmap concat (sequence something)
+---------------------------------------------------------------------------------------------------------------------------------------
 -- Iterator Req
 compile (Iterator Req _) JNull = Left "Cannot Iterate null"
 compile (Iterator Req _) (JNumber _) = Left "Cannot Iterate number"
@@ -208,3 +248,21 @@ getJsonTruthValue (JString _) = True
 getJsonTruthValue (JBool bool) = bool
 getJsonTruthValue (JArray _) = True
 getJsonTruthValue (JObject _) = True
+
+getFilterFromJson :: JSON -> Filter
+getFilterFromJson JNull = JNullFilter JNull
+getFilterFromJson (JNumber n) = JNumberFilter (JNumber n)
+getFilterFromJson (JString s) = JStringFilter (JString s)
+getFilterFromJson (JBool bool) = JBoolFilter (JBool bool)
+getFilterFromJson (JArray xs) = JArrayFilter (map getFilterFromJson xs)
+-- TODO FINISH THE JOBJECT
+-- getFilterFromJson (JObject kvp) = JObjectFilter (JObject kvp)
+
+getJsonFromFilter :: Filter -> JSON
+getJsonFromFilter (JNullFilter n) = n
+getJsonFromFilter (JNumberFilter n) = n
+getJsonFromFilter (JStringFilter s) = s
+getJsonFromFilter (JBoolFilter bool) = bool
+getJsonFromFilter (JArrayFilter xs) = JArray (map getJsonFromFilter xs)
+-- TODO FINISH THE JOBJECT
+-- getJsonFromFilter (JObject kvp) = JObjectFilter (JObject kvp)

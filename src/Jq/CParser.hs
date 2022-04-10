@@ -5,7 +5,7 @@ module Jq.CParser where
 import Jq.Filters
 import Jq.JParser (parseJObjectField, parseMultiValueSeperator, parseJNull, parseJNumber, parseJBool, parseJString)
 import Parsing.Parsing
-import Data.Map hiding (foldr, filter, empty)
+import Data.Map hiding (null, foldr, filter, empty)
 import Prelude hiding (lookup)
 import Data.List (isInfixOf)
 
@@ -44,23 +44,23 @@ parseOrElse p alt = p <|> return alt
 parseIdenNoDot :: Parser Filter
 parseIdenNoDot = do
   identStr <- parseJObjectField <|> ident
-  opt <- parseOrElse parseOptional '!'
-  return (if opt == '?' then DictIdenIndexing Opt identStr else DictIdenIndexing Req identStr)
+  opts <- many parseOptional
+  return (if not (null opts) then DictIdenIndexing Opt identStr else DictIdenIndexing Req identStr)
 
 parseIdenWithDot :: Parser Filter
 parseIdenWithDot = do
   _ <- parseIndexPeriod
   identStr <- parseJObjectField <|> ident
-  opt <- parseOrElse parseOptional '!'
-  return (if opt == '?' then DictIdenIndexing Opt identStr else DictIdenIndexing Req identStr)
+  opts <- many parseOptional
+  return (if not (null opts) then DictIdenIndexing Opt identStr else DictIdenIndexing Req identStr)
 
 parseArrayOpt :: Parser Filter
 parseArrayOpt = do
   _ <- parseIndexingOpen
   idx <- parseFilter
   _ <- parseIndexingClose
-  opt <- parseOrElse parseOptional '!'
-  return (if opt == '?' then ArrayIndexing Opt idx else ArrayIndexing Req idx)
+  opts <- many parseOptional
+  return (if not (null opts) then ArrayIndexing Opt idx else ArrayIndexing Req idx)
 
 parseLeftOpenInnerSlice :: Parser (Maybe Filter, Maybe Filter)
 parseLeftOpenInnerSlice = do
@@ -86,8 +86,8 @@ parseSlice = do
   _ <- parseIndexingOpen
   (lo, hi) <- parseLeftOpenInnerSlice <|> parseInnerSlice <|> parseRightOpenInnerSlice
   _ <- parseIndexingClose
-  opt <- parseOrElse parseOptional '!'
-  return (if opt == '?' then ArraySlice Opt lo hi else ArraySlice Req lo hi)
+  opts <- many parseOptional
+  return (if not (null opts) then ArraySlice Opt lo hi else ArraySlice Req lo hi)
 
 -- >>> parse parseFilter ".[1:2]"
 -- [(([1:2]|.),"")]
@@ -102,8 +102,8 @@ parseEmptyIterator :: Parser Filter
 parseEmptyIterator = do
   _ <- parseIndexingOpen
   _ <- parseIndexingClose
-  opt <- parseOrElse parseOptional '!'
-  return (if opt == '?' then Iterator Opt [] else Iterator Req [])
+  opts <- many parseOptional
+  return (if not (null opts) then Iterator Opt [] else Iterator Req [])
 
 parseNonEmptyIterator :: Parser Filter
 parseNonEmptyIterator = do
@@ -111,8 +111,8 @@ parseNonEmptyIterator = do
   idx <- int
   idxs <- many otherInnerValues
   _ <- parseIndexingClose
-  opt <- parseOrElse parseOptional '!'
-  return (if opt == '?' then Iterator Opt (idx:idxs) else Iterator Req (idx:idxs))
+  opts <- many parseOptional
+  return (if not (null opts) then Iterator Opt (idx:idxs) else Iterator Req (idx:idxs))
     where otherInnerValues = do
               _ <- parseMultiValueSeperator
               int
@@ -123,8 +123,8 @@ parseDictGenIndexing = do
   field <- parseJObjectField
   fields <- many otherInnerValues
   _ <- parseIndexingClose
-  opt <- parseOrElse parseOptional '!'
-  return (if opt == '?' then DictGenIndexing Opt (field:fields) else DictGenIndexing Req (field:fields))
+  opts <- many parseOptional
+  return (if not (null opts) then DictGenIndexing Opt (field:fields) else DictGenIndexing Req (field:fields))
     where otherInnerValues = do
               _ <- parseMultiValueSeperator
               parseJObjectField

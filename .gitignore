@@ -99,3 +99,7 @@ cscope.po.out
 
 # End of https://www.toptal.com/developers/gitignore/api/tags,emacs,haskell
 submission.zip
+
+test.sh
+
+input.txt

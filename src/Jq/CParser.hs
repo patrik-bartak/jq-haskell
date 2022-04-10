@@ -6,11 +6,8 @@ import Jq.Filters
 import Jq.JParser (parseJObjectField, parseMultiValueSeperator, parseJNull, parseJNumber, parseJBool, parseJString)
 import Parsing.Parsing
 import Data.Map hiding (foldr, filter, empty)
-import Data.Foldable
-import Parsing.Parsing (Parser)
-import Data.Set (Set)
-import Debug.Trace
 import Prelude hiding (lookup)
+import Data.List (isInfixOf)
 
 
 parseIndexPeriod :: Parser Char
@@ -275,57 +272,67 @@ parseJArrayFilterMultiple = do
 
 -- should be (.,.)|(.,.)
 
+-- Speed optimization for infix operators
+parseIfContains :: String -> Parser Filter -> Parser Filter
+parseIfContains op p = P (\input -> if op `isInfixOf` input then parse p input else empty)
+
 -- Pipe - 0
 parsePipe :: Parser Filter
 parsePipe = do
+  let op = "|"
   let opPrec = 0
-  filt1 <- parseInfixLevel (opPrec + 1)
-  _ <- token parsePipeSep
+  filt1 <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
   filt2 <- parseInfixLevel opPrec
   return (Paren (Pipe filt1 filt2))
 
 -- Comma - 1
 parseComma :: Parser Filter
 parseComma = do
+  let op = ","
   let opPrec = 1
-  filt1 <- parseInfixLevel (opPrec + 1)
-  _ <- token parseCommaSep
+  filt1 <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
   filt2 <- parseInfixLevel opPrec
   return (Paren (Comma filt1 filt2))
 
 -- Equals - 2
 parseEquals :: Parser Filter
 parseEquals = do
+  let op = "=="
   let opPrec = 2
-  left <- parseInfixLevel (opPrec + 1)
-  _ <- token (string "==")
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
   right <- parseInfixLevel opPrec
   return (Paren (Equals left right))
 
 -- NotEquals - 3
 parseNotEquals :: Parser Filter
 parseNotEquals = do
+  let op = "!="
   let opPrec = 3
-  left <- parseInfixLevel (opPrec + 1)
-  _ <- token (string "!=")
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
   right <- parseInfixLevel opPrec
   return (Paren (NotEquals left right))
 
 -- LogicalOr - 4
 parseLogicalOr :: Parser Filter
 parseLogicalOr = do
+  let op = "or"
   let opPrec = 4
-  left <- parseInfixLevel (opPrec + 1)
-  _ <- token (string "or")
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
   right <- parseInfixLevel opPrec
   return (Paren (LogicalOr left right))
 
 -- LogicalAnd - 5
 parseLogicalAnd :: Parser Filter
 parseLogicalAnd = do
+  let op = "and"
   let opPrec = 5
-  left <- parseInfixLevel (opPrec + 1)
-  _ <- token (string "and")
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
   right <- parseInfixLevel opPrec
   return (Paren (LogicalAnd left right))
 

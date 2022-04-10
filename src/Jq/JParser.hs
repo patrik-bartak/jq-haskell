@@ -2,7 +2,7 @@ module Jq.JParser where
 
 import Data.Char
 import Jq.Json
-import Parsing.Parsing
+import Parsing.Parsing hiding (unicode)
 import Numeric
 import Data.Set
 

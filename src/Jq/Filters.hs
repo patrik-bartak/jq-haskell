@@ -14,7 +14,7 @@ data Filter
   | DictIdenIndexing Optionality String
   | DictGenIndexing Optionality [String]
   | ArrayIndexing Optionality Filter -- can be filter
-  | ArraySlice Optionality Filter Filter -- can be filter
+  | ArraySlice Optionality (Maybe Filter) (Maybe Filter) -- can be filter
   | Iterator Optionality [Int] -- can be filter
   | RecDesc -- done
   | Pipe Filter Filter -- done

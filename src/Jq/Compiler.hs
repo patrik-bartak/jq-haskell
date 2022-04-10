@@ -121,56 +121,70 @@ compile (ArraySlice Opt _ _) (JNumber _) = return []
 compile (ArraySlice Opt _ _) (JBool _) = return []
 compile (ArraySlice Opt _ _) (JObject _) = return []
 -- ArraySlice range Req
-compile (ArraySlice Req (JNullFilter _) _) _    = Left "Slice bounds must be numbers"
-compile (ArraySlice Req _ (JNullFilter _)) _    = Left "Slice bounds must be numbers"
-compile (ArraySlice Req (JBoolFilter _) _) _    = Left "Slice bounds must be numbers"
-compile (ArraySlice Req _ (JBoolFilter _)) _    = Left "Slice bounds must be numbers"
-compile (ArraySlice Req (JObjectFilter _) _) _  = Left "Slice bounds must be numbers"
-compile (ArraySlice Req _ (JObjectFilter _)) _  = Left "Slice bounds must be numbers"
-compile (ArraySlice Req (JArrayFilter _) _) _  = Left "Slice bounds must be numbers"
-compile (ArraySlice Req _ (JArrayFilter _)) _  = Left "Slice bounds must be numbers"
+compile (ArraySlice Req (Just (JNullFilter _)) _) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (Just (JNullFilter _))) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req (Just (JBoolFilter _)) _) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (Just (JBoolFilter _))) _    = Left "Slice bounds must be numbers"
+compile (ArraySlice Req (Just (JObjectFilter _)) _) _  = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (Just (JObjectFilter _))) _  = Left "Slice bounds must be numbers"
+compile (ArraySlice Req (Just (JArrayFilter _)) _) _  = Left "Slice bounds must be numbers"
+compile (ArraySlice Req _ (Just (JArrayFilter _))) _  = Left "Slice bounds must be numbers"
 -- ArraySlice range Opt
-compile (ArraySlice Opt (JNullFilter _) _) _    = return []
-compile (ArraySlice Opt _ (JNullFilter _)) _    = return []
-compile (ArraySlice Opt (JBoolFilter _) _) _    = return []
-compile (ArraySlice Opt _ (JBoolFilter _)) _    = return []
-compile (ArraySlice Opt (JObjectFilter _) _) _  = return []
-compile (ArraySlice Opt _ (JObjectFilter _)) _  = return []
-compile (ArraySlice Opt (JArrayFilter _) _) _  = return []
-compile (ArraySlice Opt _ (JArrayFilter _)) _  = return []
+compile (ArraySlice Opt (Just (JNullFilter _)) _) _    = return []
+compile (ArraySlice Opt _ (Just (JNullFilter _))) _    = return []
+compile (ArraySlice Opt (Just (JBoolFilter _)) _) _    = return []
+compile (ArraySlice Opt _ (Just (JBoolFilter _))) _    = return []
+compile (ArraySlice Opt (Just (JObjectFilter _)) _) _  = return []
+compile (ArraySlice Opt _ (Just (JObjectFilter _))) _  = return []
+compile (ArraySlice Opt (Just (JArrayFilter _)) _) _  = return []
+compile (ArraySlice Opt _ (Just (JArrayFilter _))) _  = return []
 ---------------------------------------------------------------------------------------------------------------------------------------
 -- ArraySlice JString
 -- JSON Filter values
-compile (ArraySlice _ (JNumberFilter (JNumber lo)) (JNumberFilter (JNumber hi))) (JString xs)
+-- Desugar left open
+compile (ArraySlice optio Nothing filt2) (JString xs) = 
+  compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JString xs)
+-- Desugar right open
+compile (ArraySlice optio filt1 Nothing) (JString xs) = 
+  compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JString xs)
+-- Evaluate
+compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (JNumber hi)))) (JString xs)
   | norm_hi <= norm_lo = return [JString []]
   | otherwise = return [JString (sliceList xs norm_lo norm_hi)]
   where
     (int_lo, int_hi) = (round lo, round hi)
     (norm_lo, norm_hi) = normalizeIndices (int_lo, int_hi) xs
 -- Unevaluated Filters
-compile (ArraySlice optio lo_filt hi_filt) (JString xs) = do
+compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) (JString xs) = do
   eval_lo <- compile lo_filt (JString xs)
   eval_hi <- compile hi_filt (JString xs)
   let sliceTupleCombinations = (,) <$> eval_lo <*> eval_hi
   let sliceTupleFilters = fmap (\(j1, j2) -> (getFilterFromJson j1, getFilterFromJson j2)) sliceTupleCombinations
-  let something = [ compile (ArraySlice optio lo_json hi_json) (JString xs) | (lo_json, hi_json) <- sliceTupleFilters]
+  let something = [ compile (ArraySlice optio (Just lo_json) (Just hi_json)) (JString xs) | (lo_json, hi_json) <- sliceTupleFilters]
   fmap concat (sequence something)
 ---------------------------------------------------------------------------------------------------------------------------------------
 -- ArraySlice JArray
 -- JSON Filter values
-compile (ArraySlice _ (JNumberFilter (JNumber lo)) (JNumberFilter (JNumber hi))) (JArray xs)
+-- Desugar left open
+compile (ArraySlice optio Nothing filt2) (JArray xs) = 
+  compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JArray xs)
+-- Desugar right open
+compile (ArraySlice optio filt1 Nothing) (JArray xs) = 
+  compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JArray xs)
+-- Evaluate
+compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (JNumber hi)))) (JArray xs)
   | norm_hi <= norm_lo = return [JArray []]
   | otherwise = return [JArray (sliceList xs norm_lo norm_hi)]
   where
     (int_lo, int_hi) = (round lo, round hi)
     (norm_lo, norm_hi) = normalizeIndices (int_lo, int_hi) xs
 -- Unevaluated Filters
-compile (ArraySlice optio lo_filt hi_filt) (JArray xs) = do
+compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) (JArray xs) = do
   eval_lo <- compile lo_filt (JArray xs)
   eval_hi <- compile hi_filt (JArray xs)
   let sliceTupleCombinations = (,) <$> eval_lo <*> eval_hi
   let sliceTupleFilters = fmap (\(j1, j2) -> (getFilterFromJson j1, getFilterFromJson j2)) sliceTupleCombinations
-  let something = [ compile (ArraySlice optio lo_json hi_json) (JArray xs) | (lo_json, hi_json) <- sliceTupleFilters]
+  let something = [ compile (ArraySlice optio (Just lo_json) (Just hi_json)) (JArray xs) | (lo_json, hi_json) <- sliceTupleFilters]
   fmap concat (sequence something)
 ---------------------------------------------------------------------------------------------------------------------------------------
 -- Iterator Req

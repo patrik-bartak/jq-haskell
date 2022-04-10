@@ -62,17 +62,29 @@ parseArrayOpt = do
   opt <- parseOrElse parseOptional '!'
   return (if opt == '?' then ArrayIndexing Opt idx else ArrayIndexing Req idx)
 
-parseInnerSlice :: Parser (Filter, Filter)
+parseLeftOpenInnerSlice :: Parser (Maybe Filter, Maybe Filter)
+parseLeftOpenInnerSlice = do
+  _ <- parseSliceSep
+  hi <- parseFilter
+  return (Nothing, Just hi)
+
+parseInnerSlice :: Parser (Maybe Filter, Maybe Filter)
 parseInnerSlice = do
   lo <- parseFilter
   _ <- parseSliceSep
   hi <- parseFilter
-  return (lo, hi)
+  return (Just lo, Just hi)
+
+parseRightOpenInnerSlice :: Parser (Maybe Filter, Maybe Filter)
+parseRightOpenInnerSlice = do
+  lo <- parseFilter
+  _ <- parseSliceSep
+  return (Just lo, Nothing)
 
 parseSlice :: Parser Filter
 parseSlice = do
   _ <- parseIndexingOpen
-  (lo, hi) <- parseInnerSlice
+  (lo, hi) <- parseLeftOpenInnerSlice <|> parseInnerSlice <|> parseRightOpenInnerSlice
   _ <- parseIndexingClose
   opt <- parseOrElse parseOptional '!'
   return (if opt == '?' then ArraySlice Opt lo hi else ArraySlice Req lo hi)

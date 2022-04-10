@@ -7,7 +7,6 @@ module Jq.Compiler where
 
 import Jq.Filters
 import Jq.Json
-import Debug.Trace
 
 type JProgram a = JSON -> Either String a
 

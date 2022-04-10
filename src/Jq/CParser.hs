@@ -1,9 +1,16 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use <$>" #-}
 module Jq.CParser where
 
 import Jq.Filters
 import Jq.JParser (parseJObjectField, parseMultiValueSeperator, parseJNull, parseJNumber, parseJBool, parseJString)
 import Parsing.Parsing
-import Data.Map
+import Data.Map hiding (foldr, filter, empty)
+import Data.Foldable
+import Parsing.Parsing (Parser)
+import Data.Set (Set)
+import Debug.Trace
+import Prelude hiding (lookup)
 
 
 parseIndexPeriod :: Parser Char
@@ -118,7 +125,7 @@ parseIndexing = do
   _ <- parseIndexPeriod
   firstIdx <- parseFirstIndexType
   fieldIdxs <- many parseSubsequentIndexTypes
-  return (Prelude.foldr Pipe Identity (firstIdx:fieldIdxs))
+  return (Paren (Prelude.foldr Pipe Identity (firstIdx:fieldIdxs)))
 
 parseFirstIndexType :: Parser Filter
 parseFirstIndexType =
@@ -143,32 +150,6 @@ parseSubsequentIndexTypes =
 -- >>> parse parseFilter ".foo.bar"
 -- [(foo|bar|.,"")]
 
--- Comma
-parseComma :: Parser Filter
-parseComma = do
-  filt1 <- parseFilterNotInfix -- all but pipe and comma
-  _ <- parseCommaSep
-  filt2 <- parseComma <|> parseFilterNotInfix -- all but pipe (pipe has lower precedence)
-  return (Paren (Comma filt1 filt2))
-
--- Pipe
-parsePipe :: Parser Filter
-parsePipe = do
-  filt1 <- parseComma <|> parseFilterNotInfix -- all but pipe (prevent infinite loop)
-  _ <- parsePipeSep
-  filt2 <- parseFilter
-  return (Paren (Pipe filt1 filt2))
-
--- >>> parse parseFilter ".|.,.|."
--- [((.|((.,.)|.)),"")]
-
--- should be (.|(.,.)|.))
-
--- >>> parse parseFilter ".,.|.,."
--- [(((.,.)|(.,.)),"")]
-
--- should be (.,.)|(.,.)
-
 -- Paren
 parseParen :: Parser Filter
 parseParen = do
@@ -190,11 +171,22 @@ parseRecDesc = do
 
 -- Main parsing function
 parseFilter :: Parser Filter
-parseFilter = parseFiltersInfix
-          <|> parseFilterNotInfix
+parseFilter = parseInfixLevel 0
 
-parseFiltersInfix :: Parser Filter
-parseFiltersInfix = parsePipe <|> parseComma
+-- Recursive descent infix precedence
+parseInfixLevel :: Int -> Parser Filter
+parseInfixLevel n = case lookup n infixPrecedenceMap of 
+  Just parser -> parser <|> parseInfixLevel (n+1)
+  Nothing -> parseFilterNotInfix
+
+-- Precedence associated to each infix operator
+infixPrecedenceMap :: Map Int (Parser Filter)
+infixPrecedenceMap = fromList [
+    (0, parsePipe),
+    (1, parseComma),
+    (2, parseEquals),
+    (3, parseNotEquals)
+  ]
 
 parseFilterNotInfix :: Parser Filter
 parseFilterNotInfix = parseRecDesc
@@ -266,3 +258,118 @@ parseJArrayFilterMultiple = do
     parseInnerJsons = do
       _ <- parseMultiValueSeperator
       parseFilter
+
+-- JObject value constructor
+
+-- Infix operators & their precedence
+-- >>> parse parseFilter ".|.,.|."
+-- [((.|((.,.)|.)),"")]
+
+-- should be (.|(.,.)|.))
+
+-- >>> parse parseFilter ".,.|.,."
+-- [(((.,.)|(.,.)),"")]
+
+-- should be (.,.)|(.,.)
+
+-- Pipe - 0
+parsePipe :: Parser Filter
+parsePipe = do
+  filt1 <- parseInfixLevel 1
+  _ <- parsePipeSep
+  filt2 <- parseInfixLevel 0
+  return (Paren (Pipe filt1 filt2))
+
+-- Comma - 1
+parseComma :: Parser Filter
+parseComma = do
+  filt1 <- parseInfixLevel 2
+  _ <- parseCommaSep
+  filt2 <- parseInfixLevel 1
+  return (Paren (Comma filt1 filt2))
+
+-- Equals - 2
+parseEquals :: Parser Filter
+parseEquals = do
+  left <- parseInfixLevel 3
+  _ <- string "=="
+  right <- parseInfixLevel 2
+  return (Paren (Equals left right))
+
+-- NotEquals - 3
+parseNotEquals :: Parser Filter
+parseNotEquals = do
+  left <- parseInfixLevel 4
+  _ <- string "!="
+  right <- parseInfixLevel 3
+  return (Paren (NotEquals left right))
+
+
+
+
+-- For some reason I decided to spend time implementing Dijkstra's shunting yard algorithm?
+
+-- >>> parse parseFilter "1==1!=1,1|1==1!=1"
+-- [((((1 == (1 != 1)),1)|(1 == (1 != 1))),"")]
+
+-- operators :: [Filter]
+-- operators = keys precedence
+
+-- precedence :: Map Filter Int
+-- precedence = fromList [
+--   (NotEquals Identity Identity, 2), 
+--   (Equals Identity Identity, 1)
+--   ]
+
+-- yard :: String -> [Char] -> String
+-- yard [] stack = stack
+-- yard (nextToken:tokens) stack
+--   | nextToken `elem` operators = 
+--       let greater = getGreaterPrecedence nextToken stack
+--           remaining = getRestOfStack nextToken stack
+--           in greater ++ yard tokens (nextToken:remaining)
+--   | otherwise = nextToken : yard tokens stack
+
+-- getGreaterPrecedence :: Char -> [Char] -> [Char]
+-- getGreaterPrecedence _ [] = []
+-- getGreaterPrecedence toFind (top:stack)
+--   | Data.Map.lookup top precedence > myPrec = top : getGreaterPrecedence toFind stack
+--   | otherwise                               = []
+--       where myPrec = Data.Map.lookup toFind precedence
+
+-- getRestOfStack :: Char -> [Char] -> [Char]
+-- getRestOfStack _ [] = []
+-- getRestOfStack toFind (top:stack)
+--   | Data.Map.lookup top precedence > myPrec = getRestOfStack toFind stack
+--   | otherwise                               = top:stack
+--       where myPrec = Data.Map.lookup toFind precedence
+
+-- st :: [Char]
+-- st = "**++**"
+-- mychar :: Char
+-- mychar = '+'
+
+-- >>> (getGreaterPrecedence mychar st, getRestOfStack mychar st)
+-- ("**","++**")
+
+-- >>> yard "2+4*1+2" []
+-- "241*2++"
+
+-- should be (.,.)|(.,.)
+
+-- postfixToInfix :: [String] -> [String] -> [String]
+-- postfixToInfix [] stack = stack
+-- postfixToInfix (nextToken:tokens) stack
+--   | nextToken `elem` operators = case stack of
+--                           fst:snd:rest -> postfixToInfix tokens (("(" ++ fst ++ nextToken ++ snd ++ ")"):rest)
+--   | otherwise = postfixToInfix tokens (nextToken:stack)
+
+-- deconcat :: [a] -> [[a]]
+-- deconcat [] = []
+-- deconcat (s:str) = [s] : deconcat str
+
+-- >>> (deconcat "241*2++")
+-- ["2","4","1","*","2","+","+"]
+
+-- >>> concat (postfixToInfix (deconcat "241*2++") [])
+-- "((2+(1*4))+2)"

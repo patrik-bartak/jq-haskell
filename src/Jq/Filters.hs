@@ -19,13 +19,24 @@ data Filter
   | RecDesc -- done
   | Pipe Filter Filter -- done
   | Comma Filter Filter -- done
-  -- value constructors (not done)
+  -- Value constructors (not done)
   | JNullFilter JSON
   | JNumberFilter JSON
   | JStringFilter JSON
   | JBoolFilter JSON
   | JArrayFilter [Filter]
   | JObjectFilter [(String, JSON)]
+  -- Conditionals and comparisons
+  | Equals Filter Filter
+  | NotEquals Filter Filter
+  | LessThan Filter Filter
+  | LessThanOrEqual Filter Filter
+  | MoreThan Filter Filter
+  | MoreThanOrEqual Filter Filter
+  | IfThenElse Filter Filter Filter
+  | LogicalAnd Filter Filter
+  | LogicalOr Filter Filter
+  | LogicalNot
   deriving (Eq)
 
 instance Show Filter where
@@ -53,7 +64,23 @@ instance Show Filter where
   show (Pipe f1 f2) = show f1 ++ "|" ++ show f2
   show (Comma f1 f2) = show f1 ++ "," ++ show f2
   -- Value constructors
+  show (JNullFilter n) = show n
+  show (JNumberFilter n) = show n
+  show (JStringFilter s) = show s
+  show (JBoolFilter b) = show b
   show (JArrayFilter fs) = show fs
+  show (JObjectFilter flds) = show flds
+  -- Conditionals and comparisons
+  show (Equals f1 f2) = show f1 ++ " == " ++ show f2
+  show (NotEquals f1 f2) = show f1 ++ " != " ++ show f2
+  show (LessThan f1 f2) = show f1 ++ " < " ++ show f2
+  show (LessThanOrEqual f1 f2) = show f1 ++ " <= " ++ show f2
+  show (MoreThan f1 f2) = show f1 ++ " > " ++ show f2
+  show (MoreThanOrEqual f1 f2) = show f1 ++ " >= " ++ show f2
+  show (IfThenElse cond tru fals) = "if (" ++ show cond ++ ") then (" ++ show tru ++ ") else (" ++ show fals ++ ") end"
+  show (LogicalAnd f1 f2) = show f1 ++ " and " ++ show f2
+  show (LogicalOr f1 f2) = show f1 ++ " or " ++ show f2
+  show LogicalNot = "not"
 
 -- instance Eq Filter where
 --   -- Identity, Parentheses

@@ -166,7 +166,7 @@ compile RecDesc (JObject kvpairs) = do
   return (JObject kvpairs : concat deeper)
 -- RecDesc other JSONs
 compile RecDesc inp = return [inp]
-
+-- Value constructors
 compile (JArrayFilter fltrs) inp = do
   jsons <- fmap concat (mapM (`compile` inp) fltrs)
   return [JArray jsons]
@@ -174,6 +174,11 @@ compile (JNullFilter jNull) _ = return [jNull]
 compile (JNumberFilter jNumber) _ = return [jNumber]
 compile (JBoolFilter jBool) _ = return [jBool]
 compile (JStringFilter jString) _ = return [jString]
+-- Conditionals and comparators
+compile (Equals filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return [JBool (res1 == res2)]
 
 run :: JProgram [JSON] -> JSON -> Either String [JSON]
 -- run p j = p j

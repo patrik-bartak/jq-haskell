@@ -7,6 +7,7 @@ module Jq.Compiler where
 
 import Jq.Filters
 import Jq.Json
+import Data.List (elemIndex)
 
 type JProgram a = JSON -> Either String a
 
@@ -98,7 +99,12 @@ compile (ArrayIndexing Opt (JNullFilter _)) _    = return []
 compile (ArrayIndexing Opt (JStringFilter _)) _  = return []
 compile (ArrayIndexing Opt (JBoolFilter _)) _    = return []
 compile (ArrayIndexing Opt (JObjectFilter _)) _  = return []
-compile (ArrayIndexing _ (JArrayFilter fltrs)) inp  = compile (JArrayFilter fltrs) inp
+-- For `echo '[10,20,30]' | jq '.[[10]]'` syntax where a filter array is used to index a JArray to get idx values
+compile (ArrayIndexing _ (JArrayFilter ((JNumberFilter jsonVal):_))) (JArray xs) = case elemIndex jsonVal xs of
+  Nothing -> return [JArray []]
+  Just n -> return [JArray [JNumber (fromIntegral n)]]
+-- For `echo '[10,20,30]' | jq '.[["str"]]'`
+compile (ArrayIndexing _ (JArrayFilter (_:_))) (JArray _) = return [JArray []]
 -- compile (ArrayIndexing _ (JArrayFilter (fltr:_))) inp  = compile fltr inp
 -- ArrayIndexing All
 compile (ArrayIndexing _ _) (JArray []) = return [JNull]

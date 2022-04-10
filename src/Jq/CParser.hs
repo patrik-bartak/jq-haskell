@@ -132,8 +132,8 @@ parseDictGenIndexing = do
 -- >>> parse parseFilter ".[\"asd\",\"asd\"]?.foo?[0]?"
 -- [((["asd","asd"]?|foo?|[0]?|.),"")]
 
--- >>> parse parseFilter ".[\"a\",2]"
--- [(([("a",2)]|.),"")]
+-- >>> parse parseFilter ".[[false]]"
+-- [(([[false]]|.),"")]
 
 parseIndexing :: Parser Filter
 parseIndexing = do

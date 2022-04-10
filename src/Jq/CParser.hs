@@ -57,7 +57,7 @@ parseIdenWithDot = do
 parseArrayOpt :: Parser Filter
 parseArrayOpt = do
   _ <- parseIndexingOpen
-  idx <- int
+  idx <- parseFilter
   _ <- parseIndexingClose
   opt <- parseOrElse parseOptional '!'
   return (if opt == '?' then ArrayIndexing Opt idx else ArrayIndexing Req idx)

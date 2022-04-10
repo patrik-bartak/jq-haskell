@@ -17,9 +17,19 @@ sliceList xs lo hi = take (hi - lo) (drop lo xs)
 normalizeIndices :: (Int, Int) -> [a] -> (Int, Int)
 normalizeIndices (lo, hi) xs = (normalizeIndex lo xs, normalizeIndex hi xs)
 
+normalizeIndicesDub :: (Double, Double) -> [a] -> (Double, Double)
+normalizeIndicesDub (lo, hi) xs = (normalizeIndexDub lo xs, normalizeIndexDub hi xs)
+
 normalizeIndex :: Int -> [a] -> Int
 normalizeIndex idx xs
   | idx < 0 = idx + len
+  | otherwise = idx
+  where
+    len = length xs
+
+normalizeIndexDub :: Double -> [a] -> Double
+normalizeIndexDub idx xs
+  | idx < 0 = idx + fromIntegral len
   | otherwise = idx
   where
     len = length xs
@@ -79,13 +89,27 @@ compile (ArrayIndexing Opt _) (JObject _) = return []
 --   | idx == 0     = return [JString [x]]
 --   | idx > 0     = compile (ArrayIndexing optio (idx - 1)) (JString xs)
 --   | otherwise    = compile (ArrayIndexing optio (-(idx + 1))) (JString (reverse xs))
+-- ArraySlice range Req
+compile (ArrayIndexing Req (JNullFilter _)) _    = Left "Index must be number"
+compile (ArrayIndexing Req (JBoolFilter _)) _    = Left "Index must be number"
+compile (ArrayIndexing Req (JObjectFilter _)) _  = Left "Index must be number" -- Maybe possible?
+-- ArraySlice range Opt
+compile (ArrayIndexing Opt (JNullFilter _)) _    = return []
+compile (ArrayIndexing Opt (JBoolFilter _)) _    = return []
+compile (ArrayIndexing Opt (JObjectFilter _)) _  = return []
+compile (ArrayIndexing _ (JArrayFilter (fltr:_))) inp  = compile fltr inp
 -- ArrayIndexing All
 compile (ArrayIndexing _ _) (JArray []) = return [JNull]
-compile (ArrayIndexing optio idx) (JArray (x : xs))
+compile (ArrayIndexing optio (JNumberFilter (JNumber idx))) (JArray (x : xs))
   | norm_idx == 0 = return [x]
-  | otherwise = compile (ArrayIndexing optio (norm_idx - 1)) (JArray xs)
+  | otherwise = compile (ArrayIndexing optio (JNumberFilter (JNumber (norm_idx - 1)))) (JArray xs)
   where
-    norm_idx = normalizeIndex idx (x : xs)
+    norm_idx = normalizeIndexDub idx (x : xs)
+compile (ArrayIndexing optio filt) (JArray xs) = do
+  eval_idx <- compile filt (JArray xs)
+  let sliceTupleFilters = fmap getFilterFromJson eval_idx
+  let something = [ compile (ArrayIndexing optio json) (JArray xs) | json <- sliceTupleFilters]
+  fmap concat (sequence something)
 -- ArraySlice Req
 compile (ArraySlice Req _ _) JNull = return [JNull]
 compile (ArraySlice Req _ _) (JNumber _) = Left "Cannot ArraySlice number"
@@ -171,13 +195,13 @@ compile (Iterator optio idxs) (JObject kvPairs) =
     where
       values = map snd kvPairs
       indexedList = map f idxs
-      f = \idx -> compile (ArrayIndexing optio idx) (JArray values)
+      f = \idx -> compile (ArrayIndexing optio (JNumberFilter (JNumber (fromIntegral idx)))) (JArray values)
 -- Iterator Array
 compile (Iterator optio idxs) (JArray values) =
   fmap concat (sequence indexedList)
     where
       indexedList = map f idxs
-      f = \idx -> compile (ArrayIndexing optio idx) (JArray values)
+      f = \idx -> compile (ArrayIndexing optio (JNumberFilter (JNumber (fromIntegral idx)))) (JArray values)
 -- Pipe
 compile (Pipe f1 f2) inp = do
   res1 <- compile f1 inp -- :: Either String [JSON]

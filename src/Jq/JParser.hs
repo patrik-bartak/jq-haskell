@@ -192,7 +192,8 @@ unicode = do
   c <- alphanum
   d <- alphanum
   let asInt = fst (head (readHex [a,b,c,d]))
-  return [toEnum asInt :: Char]
+  return (if asInt == 0 then "\\u0000" else [toEnum asInt :: Char])
+  -- return [toEnum asInt :: Char]
 
 escape :: Parser String
 escape = (do
@@ -206,6 +207,9 @@ escape = (do
   s <- string "\\"
   anyChar <- sat (const False)
   return (errorWithoutStackTrace ("Invalid escape sequence: " ++ s ++ [anyChar])))
+
+-- >>> parse parseJSON "\"-\\u0000-\""
+-- [("-\u0000-","")]
 
 anyOtherThanEndQuote :: Parser String
 anyOtherThanEndQuote = do

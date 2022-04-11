@@ -261,26 +261,60 @@ compile (JNumberFilter jNumber) _ = return [jNumber]
 compile (JBoolFilter jBool) _ = return [jBool]
 compile (JStringFilter jString) _ = return [jString]
 -- Conditionals and comparators
+-- Equals
 compile (Equals filt1 filt2) inp = do
   res1 <- compile filt1 inp
   res2 <- compile filt2 inp
   return (fmap JBool ((==) <$> res1 <*> res2))
+-- NotEquals
 compile (NotEquals filt1 filt2) inp = do
   res1 <- compile filt1 inp
   res2 <- compile filt2 inp
   return (fmap JBool ((/=) <$> res1 <*> res2))
+-- LessThan
+compile (LessThan filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return (fmap JBool ((<) <$> res1 <*> res2))
+-- LessThanOrEqual
+compile (LessThanOrEqual filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return (fmap JBool ((<=) <$> res1 <*> res2))
+-- MoreThan
+compile (MoreThan filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return (fmap JBool ((>) <$> res1 <*> res2))
+-- MoreThanOrEqual
+compile (MoreThanOrEqual filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return (fmap JBool ((>=) <$> res1 <*> res2))
+-- And
 compile (LogicalAnd filt1 filt2) inp = do
   res1 <- compile filt1 inp
   res2 <- compile filt2 inp
   return (fmap JBool (logicalMatchJson (&&) <$> res1 <*> res2))
+-- Or
 compile (LogicalOr filt1 filt2) inp = do
   res1 <- compile filt1 inp
   res2 <- compile filt2 inp
   return (fmap JBool (logicalMatchJson (||) <$> res1 <*> res2))
+-- Not
 compile LogicalNot json = Right [JBool (not (getJsonTruthValue json))]
-
+-- IfThenElse
+compile (IfThenElse cond caseTrue caseFalse) inp = do
+  conds <- compile cond inp
+  let trueOrFalses = map getJsonTruthValue conds
+  let casesFilters = map (ifThenElseReturnCorrectCase caseTrue caseFalse) trueOrFalses
+  fmap concat (mapM (`compile` inp) casesFilters)
+  
 run :: JProgram [JSON] -> JSON -> Either String [JSON]
 run p j = p j
+
+ifThenElseReturnCorrectCase :: p -> p -> Bool -> p
+ifThenElseReturnCorrectCase caseTrue caseFalse cond = if cond then caseTrue else caseFalse
 
 logicalMatchJson :: (Bool -> Bool -> Bool) -> JSON -> JSON -> Bool
 logicalMatchJson op json1 json2 = case (getJsonTruthValue json1, getJsonTruthValue json2) of

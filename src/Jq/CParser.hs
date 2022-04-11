@@ -199,11 +199,15 @@ infixPrecedenceMap :: Map Int (Parser Filter)
 infixPrecedenceMap = fromList [
     (0, parsePipe),
     (1, parseComma),
-    (2, parseEquals),
-    (3, parseNotEquals),
-    (4, parseLogicalOr),
-    (5, parseLogicalAnd),
-    (6, parseLogicalNot)
+    (2, parseLogicalOr),
+    (3, parseLogicalAnd),
+    (4, parseLogicalNot),
+    (5, parseEquals),
+    (6, parseNotEquals),
+    (7, parseLessThan),
+    (8, parseLessThanOrEqual),
+    (9, parseMoreThan),
+    (10, parseMoreThanOrEqual)
   ]
 
 parseFilterNotInfix :: Parser Filter
@@ -211,6 +215,7 @@ parseFilterNotInfix = parseRecDesc
                   <|> parseParen
                   <|> parseIndexing
                   <|> parseIdentity
+                  <|> parseIfThenElse
                   <|> parseJSONFilters
 
 parseJSONFilters :: Parser Filter
@@ -314,59 +319,111 @@ parseComma = do
   filt2 <- parseInfixLevel opPrec
   return (Paren (Comma filt1 filt2))
 
--- Equals - 2
-parseEquals :: Parser Filter
-parseEquals = do
-  let op = "=="
-  let opPrec = 2
-  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
-  _ <- token (string op)
-  right <- parseInfixLevel opPrec
-  return (Paren (Equals left right))
-
--- NotEquals - 3
-parseNotEquals :: Parser Filter
-parseNotEquals = do
-  let op = "!="
-  let opPrec = 3
-  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
-  _ <- token (string op)
-  right <- parseInfixLevel opPrec
-  return (Paren (NotEquals left right))
-
--- LogicalOr - 4
+-- LogicalOr - 2
 parseLogicalOr :: Parser Filter
 parseLogicalOr = do
   let op = "or"
-  let opPrec = 4
+  let opPrec = 2
   left <- parseIfContains op (parseInfixLevel (opPrec + 1))
   _ <- token (string op)
   right <- parseInfixLevel opPrec
   return (Paren (LogicalOr left right))
 
--- LogicalAnd - 5
+-- LogicalAnd - 3
 parseLogicalAnd :: Parser Filter
 parseLogicalAnd = do
   let op = "and"
-  let opPrec = 5
+  let opPrec = 3
   left <- parseIfContains op (parseInfixLevel (opPrec + 1))
   _ <- token (string op)
   right <- parseInfixLevel opPrec
   return (Paren (LogicalAnd left right))
 
--- LogicalAnd - 6
+-- LogicalAnd - 4
 parseLogicalNot :: Parser Filter
 parseLogicalNot = do
   _ <- token (string "not")
   return (Paren LogicalNot)
+
+-- Equals - 5
+parseEquals :: Parser Filter
+parseEquals = do
+  let op = "=="
+  let opPrec = 5
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (Equals left right))
+
+-- NotEquals - 6
+parseNotEquals :: Parser Filter
+parseNotEquals = do
+  let op = "!="
+  let opPrec = 6
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (NotEquals left right))
+
+-- LessThan - 7
+parseLessThan :: Parser Filter
+parseLessThan = do
+  let op = "<"
+  let opPrec = 7
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (LessThan left right))
+
+-- LessThanOrEqual - 8
+parseLessThanOrEqual :: Parser Filter
+parseLessThanOrEqual = do
+  let op = "<="
+  let opPrec = 8
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (LessThanOrEqual left right))
+
+-- MoreThan - 9
+parseMoreThan :: Parser Filter
+parseMoreThan = do
+  let op = ">"
+  let opPrec = 9
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (MoreThan left right))
+
+-- MoreThanOrEqual - 10
+parseMoreThanOrEqual :: Parser Filter
+parseMoreThanOrEqual = do
+  let op = ">="
+  let opPrec = 10
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (MoreThanOrEqual left right))
+
 
 -- >>> parse parseFilter "true and true or true and true"
 -- [(((true and true) or (true and true)),"")]
 
 -- should be ((true and true) or (true and true))
 
+parseIfThenElse :: Parser Filter
+parseIfThenElse = do
+  _ <- token (string "if")
+  cond <- parseFilter
+  _ <- token (string "then")
+  caseTrue <- parseFilter
+  _ <- token (string "else")
+  caseFalse <- parseFilter
+  _ <- token (string "end")
+  return (IfThenElse cond caseTrue caseFalse)
 
-
+-- >>> parse parseFilter "if true and 5 == 6 then [1,2,3] else \"nothing\" end"
+-- [(if ((true and (5 == 6))) then ([(1,(2,3))]) else ("nothing") end,"")]
 
 -- For some reason I decided to spend time implementing Dijkstra's shunting yard algorithm?
 

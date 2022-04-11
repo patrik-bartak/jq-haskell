@@ -61,7 +61,7 @@ replace _ _ [] = []
 replace old new (x : xs) = if x == old then new ++ replace old new xs else x : replace old new xs
 
 -- >>> escapeChars "\n\r\f" "asdf\n\r\f"
--- "asdf\\\n\\\r\\\f"
+-- "asdf\\n\\r\\f"
 
 -- renderJArray :: String
 -- renderJArray = "[" ++ replace "\n" "\n  " (renderInnerJArray xs) ++ "]"
@@ -144,6 +144,50 @@ instance Eq JSON where
   (JArray xs) == (JArray ys) = xs == ys
   (JObject xs) == (JObject ys) = xs == ys
   _ == _ = False
+
+instance Ord JSON where
+  compare JNull JNull = EQ
+  compare (JNumber x) (JNumber y) = compare x y
+  compare (JString x) (JString y) = compare x y
+  compare (JBool x) (JBool y) = compare x y
+  compare (JArray xs) (JArray ys) = compare xs ys
+  compare (JObject xs) (JObject ys) = compare xs ys
+  -- Special cases JNull
+  compare JNull (JNumber _) = LT
+  compare JNull (JString _) = LT
+  compare JNull (JBool _) = LT
+  compare JNull (JArray _) = LT
+  compare JNull (JObject _) = LT
+  -- Special cases JNumber
+  compare (JNumber _) JNull = GT
+  compare (JNumber _) (JString _) = LT
+  compare (JNumber _) (JBool _) = GT
+  compare (JNumber _) (JArray _) = LT
+  compare (JNumber _) (JObject _) = LT
+  -- Special cases JNumber
+  compare (JString _) JNull = GT
+  compare (JString _) (JNumber _) = GT
+  compare (JString _) (JBool _) = GT
+  compare (JString _) (JArray _) = LT
+  compare (JString _) (JObject _) = LT
+  -- Special cases JBool
+  compare (JBool _) JNull = GT
+  compare (JBool _) (JNumber _) = LT
+  compare (JBool _) (JString _) = LT
+  compare (JBool _) (JArray _) = LT
+  compare (JBool _) (JObject _) = LT
+  -- Special cases JArray
+  compare (JArray _) JNull = GT
+  compare (JArray _) (JNumber _) = GT
+  compare (JArray _) (JString _) = GT
+  compare (JArray _) (JBool _) = GT
+  compare (JArray _) (JObject _) = LT
+  -- Special cases JObject
+  compare (JObject _) JNull = GT
+  compare (JObject _) (JNumber _) = GT
+  compare (JObject _) (JString _) = GT
+  compare (JObject _) (JBool _) = GT
+  compare (JObject _) (JArray _) = GT
 
 -- Smart constructors
 -- Don't change the names or signatures, only the definitions

@@ -3,7 +3,7 @@
 module Jq.CParser where
 
 import Jq.Filters
-import Jq.JParser (parseJObjectField, parseMultiValueSeperator, parseJNull, parseJNumber, parseJBool, parseJString)
+import Jq.JParser (parseJObjectField, parseMultiValueSeperator, parseJNull, parseJNumber, parseJBool, parseJString, parseJObject)
 import Parsing.Parsing
 import Data.Map hiding (null, foldr, filter, empty)
 import Prelude hiding (lookup)
@@ -224,7 +224,7 @@ parseJSONFilters =
     <|> token parseJNumberFilter
     <|> token parseJBoolFilter
     <|> token parseJArrayFilter
-    -- <|> token parseJObjectFilter
+    <|> token parseJObjectFilter
     <|> token parseJStringFilter
 
 parseConfig :: [String] -> Either String Config
@@ -246,6 +246,8 @@ parseJBoolFilter :: Parser Filter
 parseJBoolFilter = JBoolFilter <$> parseJBool
 parseJStringFilter :: Parser Filter
 parseJStringFilter = JStringFilter <$> parseJString
+parseJObjectFilter :: Parser Filter
+parseJObjectFilter = JObjectFilter <$> parseJObject
 
 -- JArray value constructor
 parseJArrayFilter :: Parser Filter

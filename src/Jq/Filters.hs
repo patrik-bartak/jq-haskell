@@ -25,7 +25,8 @@ data Filter
   | JStringFilter JSON
   | JBoolFilter JSON
   | JArrayFilter [Filter]
-  | JObjectFilter [(String, JSON)]
+  | JObjectFilter JSON
+  -- | JObjectFilter [(String, JSON)]
   -- Conditionals and comparisons
   | Equals Filter Filter
   | NotEquals Filter Filter

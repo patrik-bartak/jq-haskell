@@ -253,13 +253,14 @@ compile RecDesc (JObject kvpairs) = do
 -- RecDesc other JSONs
 compile RecDesc inp = return [inp]
 -- Value constructors
-compile (JArrayFilter fltrs) inp = do
-  jsons <- fmap concat (mapM (`compile` inp) fltrs)
-  return [JArray jsons]
 compile (JNullFilter jNull) _ = return [jNull]
 compile (JNumberFilter jNumber) _ = return [jNumber]
 compile (JBoolFilter jBool) _ = return [jBool]
 compile (JStringFilter jString) _ = return [jString]
+compile (JArrayFilter fltrs) inp = do
+  jsons <- fmap concat (mapM (`compile` inp) fltrs)
+  return [JArray jsons]
+compile (JObjectFilter jObject) _ = return [jObject]
 -- Conditionals and comparators
 -- Equals
 compile (Equals filt1 filt2) inp = do
@@ -309,7 +310,7 @@ compile (IfThenElse cond caseTrue caseFalse) inp = do
   let trueOrFalses = map getJsonTruthValue conds
   let casesFilters = map (ifThenElseReturnCorrectCase caseTrue caseFalse) trueOrFalses
   fmap concat (mapM (`compile` inp) casesFilters)
-  
+
 run :: JProgram [JSON] -> JSON -> Either String [JSON]
 run p j = p j
 
@@ -335,7 +336,7 @@ getFilterFromJson (JString s) = JStringFilter (JString s)
 getFilterFromJson (JBool bool) = JBoolFilter (JBool bool)
 getFilterFromJson (JArray xs) = JArrayFilter (map getFilterFromJson xs)
 -- TODO FINISH THE JOBJECT
--- getFilterFromJson (JObject kvp) = JObjectFilter (JObject kvp)
+getFilterFromJson (JObject kvp) = JObjectFilter (JObject kvp)
 
 getJsonFromFilter :: Filter -> JSON
 getJsonFromFilter (JNullFilter n) = n
@@ -344,4 +345,4 @@ getJsonFromFilter (JStringFilter s) = s
 getJsonFromFilter (JBoolFilter bool) = bool
 getJsonFromFilter (JArrayFilter xs) = JArray (map getJsonFromFilter xs)
 -- TODO FINISH THE JOBJECT
--- getJsonFromFilter (JObject kvp) = JObjectFilter (JObject kvp)
+getJsonFromFilter (JObjectFilter kvp) = kvp

@@ -121,8 +121,8 @@ compile (ArrayIndexing _ (JArrayFilter (_:_))) (JArray _) = return [JArray []]
 compile (ArrayIndexing _ _) (JArray []) = return [JNull]
 compile (ArrayIndexing optio (JNumberFilter (JNumber idx))) (JArray (x : xs))
   | norm_idx == 0 = return [x]
-  | otherwise = if idxValid 
-                then trace (show norm_idx) (compile (ArrayIndexing optio (JNumberFilter (JNumber (norm_idx - 1)))) (JArray xs))
+  | otherwise = if idxValid
+                then compile (ArrayIndexing optio (JNumberFilter (JNumber (norm_idx - 1)))) (JArray xs)
                 else return [JNull]
   where
     (norm_idx, idxValid) = normalizeIndexDub idx (x : xs)

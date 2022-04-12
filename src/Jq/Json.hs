@@ -1,5 +1,6 @@
 module Jq.Json where
 import Data.Char
+import Debug.Trace
 
 data JSON
   = JNull
@@ -40,10 +41,10 @@ renderInnerJArray [] = ""
 renderInnerJArray [x] = "\n" ++ show x ++ "\n"
 renderInnerJArray (x : xs) = "\n" ++ show x ++ "," ++ renderInnerJArray xs
 
-renderInnerJObject :: (Show a, Show b) => [(a, b)] -> String
+renderInnerJObject :: [(String, JSON)] -> String
 renderInnerJObject [] = ""
-renderInnerJObject [(key, val)] = "\n" ++ show key ++ ": " ++ show val ++ "\n"
-renderInnerJObject ((key, val) : xs) = "\n" ++ show key ++ ": " ++ show val ++ "," ++ renderInnerJObject xs
+renderInnerJObject [(key, val)] = "\n" ++ show (JString key) ++ ": " ++ show val ++ "\n"
+renderInnerJObject ((key, val) : xs) = "\n" ++ show (JString key) ++ ": " ++ show val ++ "," ++ renderInnerJObject xs
 
 replaceExceptLast :: Char -> String -> String -> String
 replaceExceptLast _ _ [] = []
@@ -58,10 +59,11 @@ escapeChars (old : olds) str = escapeChars olds (replace old new str)
 
 replace :: Char -> String -> String -> String
 replace _ _ [] = []
+replace old new ('\\' : 'u' : '0' : '0' : '0' : '0' : rest) = "\\u0000" ++ replace old new rest
 replace old new (x : xs) = if x == old then new ++ replace old new xs else x : replace old new xs
 
--- >>> escapeChars "\n\r\f" "asdf\n\r\f"
--- "asdf\\n\\r\\f"
+-- >>> escapeChars "" "\\u0000"
+-- "\\u0000"
 
 -- renderJArray :: String
 -- renderJArray = "[" ++ replace "\n" "\n  " (renderInnerJArray xs) ++ "]"

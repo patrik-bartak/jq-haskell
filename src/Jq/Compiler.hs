@@ -142,8 +142,6 @@ compile (ArraySlice Opt _ _) (JNumber _) = return []
 compile (ArraySlice Opt _ _) (JBool _) = return []
 compile (ArraySlice Opt _ _) (JObject _) = return []
 -- ArraySlice range Req
-compile (ArraySlice Req (Just (JNullFilter _)) _) _    = Left "Slice bounds must be numbers"
-compile (ArraySlice Req _ (Just (JNullFilter _))) _    = Left "Slice bounds must be numbers"
 compile (ArraySlice Req (Just (JBoolFilter _)) _) _    = Left "Slice bounds must be numbers"
 compile (ArraySlice Req _ (Just (JBoolFilter _))) _    = Left "Slice bounds must be numbers"
 compile (ArraySlice Req (Just (JObjectFilter _)) _) _  = Left "Slice bounds must be numbers"
@@ -151,8 +149,6 @@ compile (ArraySlice Req _ (Just (JObjectFilter _))) _  = Left "Slice bounds must
 compile (ArraySlice Req (Just (JArrayFilter _)) _) _  = Left "Slice bounds must be numbers"
 compile (ArraySlice Req _ (Just (JArrayFilter _))) _  = Left "Slice bounds must be numbers"
 -- ArraySlice range Opt
-compile (ArraySlice Opt (Just (JNullFilter _)) _) _    = return []
-compile (ArraySlice Opt _ (Just (JNullFilter _))) _    = return []
 compile (ArraySlice Opt (Just (JBoolFilter _)) _) _    = return []
 compile (ArraySlice Opt _ (Just (JBoolFilter _))) _    = return []
 compile (ArraySlice Opt (Just (JObjectFilter _)) _) _  = return []
@@ -165,8 +161,12 @@ compile (ArraySlice Opt _ (Just (JArrayFilter _))) _  = return []
 -- Desugar left open
 compile (ArraySlice optio Nothing filt2) (JString xs) =
   compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JString xs)
+compile (ArraySlice optio (Just (JNullFilter JNull)) filt2) (JString xs) =
+  compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JString xs)
 -- Desugar right open
 compile (ArraySlice optio filt1 Nothing) (JString xs) =
+  compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JString xs)
+compile (ArraySlice optio filt1 (Just (JNullFilter JNull))) (JString xs) =
   compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JString xs)
 -- Evaluate
 compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (JNumber hi)))) (JString xs)
@@ -189,8 +189,12 @@ compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) (JString xs) = do
 -- Desugar left open
 compile (ArraySlice optio Nothing filt2) (JArray xs) =
   compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JArray xs)
+compile (ArraySlice optio (Just (JNullFilter JNull)) filt2) (JArray xs) =
+  compile (ArraySlice optio (Just (JNumberFilter (JNumber 0))) filt2) (JArray xs)
 -- Desugar right open
 compile (ArraySlice optio filt1 Nothing) (JArray xs) =
+  compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JArray xs)
+compile (ArraySlice optio filt1 (Just (JNullFilter JNull))) (JArray xs) =
   compile (ArraySlice optio filt1 (Just (JNumberFilter (JNumber (fromIntegral (length xs)))))) (JArray xs)
 -- Evaluate
 compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (JNumber hi)))) (JArray xs)

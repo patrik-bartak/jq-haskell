@@ -6,6 +6,7 @@ import Parsing.Parsing
 import Numeric
 import Data.Set
 
+
 parseJNull :: Parser JSON
 parseJNull = do
   _ <- string "null" <|> string "Nan" <|> string "NAn" <|> string "NaN" <|> string "NAN"

@@ -1,6 +1,6 @@
 module Jq.Json where
 import Data.Char
-import Debug.Trace
+
 
 data JSON
   = JNull

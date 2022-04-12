@@ -63,36 +63,33 @@ compile (DictIdenIndexing optio fieldIdx) (JObject ((field, value) : xs))
   | fieldIdx == field = return [value]
   | otherwise = compile (DictIdenIndexing optio fieldIdx) (JObject xs)
 -- DictGenIndexing Req
-compile (DictGenIndexing Req _) JNull = return [JNull]
 compile (DictGenIndexing Req _) (JNumber _) = Left "Cannot DictIndex number"
 compile (DictGenIndexing Req _) (JString _) = Left "Cannot DictIndex string"
 compile (DictGenIndexing Req _) (JBool _) = Left "Cannot DictIndex bool"
 compile (DictGenIndexing Req _) (JArray _) = Left "Cannot DictIndex array"
 -- DictGenIndexing Opt
-compile (DictGenIndexing Opt _) JNull = return [JNull]
 compile (DictGenIndexing Opt _) (JNumber _) = return []
 compile (DictGenIndexing Opt _) (JString _) = return []
 compile (DictGenIndexing Opt _) (JBool _) = return []
 compile (DictGenIndexing Opt _) (JArray _) = return []
 -- DictGenIndexing All
 compile (DictGenIndexing _ _) (JObject []) = return [JNull]
-compile (DictGenIndexing optio fieldIdxs) (JObject kvPairs) =
+compile (DictGenIndexing optio fieldIdxs) inp =
   fmap concat (sequence indexedList)
     where
       indexedList = map f fieldIdxs
-      f = \fieldIdx -> compile (DictIdenIndexing optio fieldIdx) (JObject kvPairs)
+      f = \fieldIdx -> compile (DictIdenIndexing optio fieldIdx) inp
 -- ArrayIndexing Req
-compile (ArrayIndexing Req _) JNull = return [JNull]
 compile (ArrayIndexing Req _) (JNumber _) = Left "Cannot ArrayIndex number"
 compile (ArrayIndexing Req _) (JString _) = Left "Cannot ArrayIndex string"
 compile (ArrayIndexing Req _) (JBool _) = Left "Cannot ArrayIndex bool"
 compile (ArrayIndexing Req _) (JObject _) = Left "Cannot ArrayIndex object"
 -- ArrayIndexing Opt
-compile (ArrayIndexing Opt _) JNull = return [JNull]
 compile (ArrayIndexing Opt _) (JNumber _) = return []
 compile (ArrayIndexing Opt _) (JString _) = return []
 compile (ArrayIndexing Opt _) (JBool _) = return []
 compile (ArrayIndexing Opt _) (JObject _) = return []
+compile (ArrayIndexing _ (JNumberFilter (JNumber _))) JNull = return [JNull]
 -- ArrayIndexing String -> turns out that's not a thing in Jq :(
 -- compile (ArrayIndexing _ _) (JString []) = return [JNull]
 -- compile (ArrayIndexing optio idx) (JString (x:xs))
@@ -126,18 +123,16 @@ compile (ArrayIndexing optio (JNumberFilter (JNumber idx))) (JArray (x : xs))
                 else return [JNull]
   where
     (norm_idx, idxValid) = normalizeIndexDub idx (x : xs)
-compile (ArrayIndexing optio filt) (JArray xs) = do
-  eval_idx <- compile filt (JArray xs)
+compile (ArrayIndexing optio filt) inp = do
+  eval_idx <- compile filt inp
   let indexFilters = fmap getFilterFromJson eval_idx
-  let something = [compile (ArrayIndexing optio json) (JArray xs) | json <- indexFilters]
+  let something = [compile (ArrayIndexing optio json) inp | json <- indexFilters]
   fmap concat (sequence something)
 -- ArraySlice Req
-compile (ArraySlice Req _ _) JNull = return [JNull]
 compile (ArraySlice Req _ _) (JNumber _) = Left "Cannot ArraySlice number"
 compile (ArraySlice Req _ _) (JBool _) = Left "Cannot ArraySlice bool"
 compile (ArraySlice Req _ _) (JObject _) = Left "Cannot ArraySlice object"
 -- ArraySlice Opt
-compile (ArraySlice Opt _ _) JNull = return [JNull]
 compile (ArraySlice Opt _ _) (JNumber _) = return []
 compile (ArraySlice Opt _ _) (JBool _) = return []
 compile (ArraySlice Opt _ _) (JObject _) = return []
@@ -155,6 +150,8 @@ compile (ArraySlice Opt (Just (JObjectFilter _)) _) _  = return []
 compile (ArraySlice Opt _ (Just (JObjectFilter _))) _  = return []
 compile (ArraySlice Opt (Just (JArrayFilter _)) _) _  = return []
 compile (ArraySlice Opt _ (Just (JArrayFilter _))) _  = return []
+-- JNull special case
+compile (ArraySlice _ (Just (JNumberFilter (JNumber _))) (Just (JNumberFilter (JNumber _)))) JNull = return [JNull]
 ---------------------------------------------------------------------------------------------------------------------------------------
 -- ArraySlice JString
 -- JSON Filter values
@@ -204,21 +201,21 @@ compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (
     (int_lo, int_hi) = (round lo, round hi)
     (norm_lo, norm_hi, _) = normalizeIndices (int_lo, int_hi) xs
 -- Unevaluated Filters
-compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) (JArray xs) = do
-  eval_lo <- compile lo_filt (JArray xs)
-  eval_hi <- compile hi_filt (JArray xs)
+compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) inp = do
+  eval_lo <- compile lo_filt inp
+  eval_hi <- compile hi_filt inp
   let sliceTupleCombinations = (,) <$> eval_lo <*> eval_hi
   let sliceTupleFilters = fmap (\(j1, j2) -> (getFilterFromJson j1, getFilterFromJson j2)) sliceTupleCombinations
-  let something = [ compile (ArraySlice optio (Just lo_json) (Just hi_json)) (JArray xs) | (lo_json, hi_json) <- sliceTupleFilters]
+  let something = [ compile (ArraySlice optio (Just lo_json) (Just hi_json)) inp | (lo_json, hi_json) <- sliceTupleFilters]
   fmap concat (sequence something)
 ---------------------------------------------------------------------------------------------------------------------------------------
 -- Iterator Req
-compile (Iterator Req _) JNull = Left "Cannot Iterate null"
+compile (Iterator Req idxs) JNull = return (replicate (length idxs) JNull)
 compile (Iterator Req _) (JNumber _) = Left "Cannot Iterate number"
 compile (Iterator Req _) (JString _) = Left "Cannot Iterate string"
 compile (Iterator Req _) (JBool _) = Left "Cannot Iterate bool"
 -- Iterator Opt
-compile (Iterator Opt _) JNull = return []
+compile (Iterator Opt idxs) JNull = return (replicate (length idxs) JNull)
 compile (Iterator Opt _) (JNumber _) = return []
 compile (Iterator Opt _) (JString _) = return []
 compile (Iterator Opt _) (JBool _) = return []

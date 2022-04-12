@@ -8,31 +8,41 @@ module Jq.Compiler where
 import Jq.Filters
 import Jq.Json
 import Data.List (elemIndex)
+import Debug.Trace
 
 type JProgram a = JSON -> Either String a
 
 sliceList :: [a] -> Int -> Int -> [a]
 sliceList xs lo hi = take (hi - lo) (drop lo xs)
 
-normalizeIndices :: (Int, Int) -> [a] -> (Int, Int)
-normalizeIndices (lo, hi) xs = (normalizeIndex lo xs, normalizeIndex hi xs)
+normalizeIndices :: (Int, Int) -> [a] -> (Int, Int, Bool)
+normalizeIndices (lo, hi) xs = (normLo, normHi, succLo && succHi)
+  where (normLo, succLo) = normalizeIndex lo xs
+        (normHi, succHi) = normalizeIndex hi xs
 
-normalizeIndicesDub :: (Double, Double) -> [a] -> (Double, Double)
-normalizeIndicesDub (lo, hi) xs = (normalizeIndexDub lo xs, normalizeIndexDub hi xs)
+normalizeIndicesDub :: (Double, Double) -> [a] -> (Double, Double, Bool)
+normalizeIndicesDub (lo, hi) xs = (normLo, normHi, succLo && succHi)
+  where (normLo, succLo) = normalizeIndexDub lo xs
+        (normHi, succHi) = normalizeIndexDub hi xs
 
-normalizeIndex :: Int -> [a] -> Int
+normalizeIndex :: Int -> [a] -> (Int, Bool)
 normalizeIndex idx xs
-  | idx < 0 = idx + len
-  | otherwise = idx
+  | idx < 0 = if normalized >= 0 then (idx + len, True) else (idx + len, False)
+  | otherwise = (idx, True)
   where
     len = length xs
+    normalized = idx + len
 
-normalizeIndexDub :: Double -> [a] -> Double
+normalizeIndexDub :: Double -> [a] -> (Double, Bool)
 normalizeIndexDub idx xs
-  | idx < 0 = idx + fromIntegral len
-  | otherwise = idx
+  | idx < 0 = if normalized >= 0 then (idx + fromIntegral len, True) else (idx + fromIntegral len, False)
+  | otherwise = (idx, True)
   where
     len = length xs
+    normalized = idx + fromIntegral len
+
+-- >>> normalizeIndexDub (-7.0) [1,2,3]
+-- (-4.0,False)
 
 compile :: Filter -> JProgram [JSON]
 -- DictIdenIndexing Req
@@ -89,17 +99,18 @@ compile (ArrayIndexing Opt _) (JObject _) = return []
 --   | idx == 0     = return [JString [x]]
 --   | idx > 0     = compile (ArrayIndexing optio (idx - 1)) (JString xs)
 --   | otherwise    = compile (ArrayIndexing optio (-(idx + 1))) (JString (reverse xs))
--- ArraySlice range Req
+-- ArrayIndexing Req with invalid filters
 compile (ArrayIndexing Req (JNullFilter _)) _    = Left "Index must be number"
 compile (ArrayIndexing Req (JStringFilter _)) _  = Left "Index must be number"
 compile (ArrayIndexing Req (JBoolFilter _)) _    = Left "Index must be number"
 compile (ArrayIndexing Req (JObjectFilter _)) _  = Left "Index must be number"
--- ArraySlice range Opt
+-- ArrayIndexing Req with invalid filters
 compile (ArrayIndexing Opt (JNullFilter _)) _    = return []
 compile (ArrayIndexing Opt (JStringFilter _)) _  = return []
 compile (ArrayIndexing Opt (JBoolFilter _)) _    = return []
 compile (ArrayIndexing Opt (JObjectFilter _)) _  = return []
 -- For `echo '[10,20,30]' | jq '.[[10]]'` syntax where a filter array is used to index a JArray to get idx values
+compile (ArrayIndexing _ (JArrayFilter [])) (JArray _) = return [JArray []]
 compile (ArrayIndexing _ (JArrayFilter ((JNumberFilter jsonVal):_))) (JArray xs) = case elemIndex jsonVal xs of
   Nothing -> return [JArray []]
   Just n -> return [JArray [JNumber (fromIntegral n)]]
@@ -110,13 +121,15 @@ compile (ArrayIndexing _ (JArrayFilter (_:_))) (JArray _) = return [JArray []]
 compile (ArrayIndexing _ _) (JArray []) = return [JNull]
 compile (ArrayIndexing optio (JNumberFilter (JNumber idx))) (JArray (x : xs))
   | norm_idx == 0 = return [x]
-  | otherwise = compile (ArrayIndexing optio (JNumberFilter (JNumber (norm_idx - 1)))) (JArray xs)
+  | otherwise = if idxValid 
+                then trace (show norm_idx) (compile (ArrayIndexing optio (JNumberFilter (JNumber (norm_idx - 1)))) (JArray xs))
+                else return [JNull]
   where
-    norm_idx = normalizeIndexDub idx (x : xs)
+    (norm_idx, idxValid) = normalizeIndexDub idx (x : xs)
 compile (ArrayIndexing optio filt) (JArray xs) = do
   eval_idx <- compile filt (JArray xs)
-  let sliceTupleFilters = fmap getFilterFromJson eval_idx
-  let something = [ compile (ArrayIndexing optio json) (JArray xs) | json <- sliceTupleFilters]
+  let indexFilters = fmap getFilterFromJson eval_idx
+  let something = [compile (ArrayIndexing optio json) (JArray xs) | json <- indexFilters]
   fmap concat (sequence something)
 -- ArraySlice Req
 compile (ArraySlice Req _ _) JNull = return [JNull]
@@ -161,7 +174,7 @@ compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (
   | otherwise = return [JString (sliceList xs norm_lo norm_hi)]
   where
     (int_lo, int_hi) = (round lo, round hi)
-    (norm_lo, norm_hi) = normalizeIndices (int_lo, int_hi) xs
+    (norm_lo, norm_hi, _) = normalizeIndices (int_lo, int_hi) xs
 -- Unevaluated Filters
 compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) (JString xs) = do
   eval_lo <- compile lo_filt (JString xs)
@@ -185,7 +198,7 @@ compile (ArraySlice _ (Just (JNumberFilter (JNumber lo))) (Just (JNumberFilter (
   | otherwise = return [JArray (sliceList xs norm_lo norm_hi)]
   where
     (int_lo, int_hi) = (round lo, round hi)
-    (norm_lo, norm_hi) = normalizeIndices (int_lo, int_hi) xs
+    (norm_lo, norm_hi, _) = normalizeIndices (int_lo, int_hi) xs
 -- Unevaluated Filters
 compile (ArraySlice optio (Just lo_filt) (Just hi_filt)) (JArray xs) = do
   eval_lo <- compile lo_filt (JArray xs)

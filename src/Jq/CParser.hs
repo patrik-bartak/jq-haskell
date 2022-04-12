@@ -54,8 +54,8 @@ parseIdenWithDot = do
   opts <- many parseOptional
   return (if not (null opts) then DictIdenIndexing Opt identStr else DictIdenIndexing Req identStr)
 
-parseArrayOpt :: Parser Filter
-parseArrayOpt = do
+parseArrayIndexing :: Parser Filter
+parseArrayIndexing = do
   _ <- parseIndexingOpen
   idx <- parseFilter
   _ <- parseIndexingClose
@@ -148,7 +148,7 @@ parseFirstIndexType =
       <|> parseNonEmptyIterator
       <|> parseDictGenIndexing
       <|> parseIdenNoDot
-      <|> parseArrayOpt
+      <|> parseArrayIndexing
       <|> parseSlice
 
 parseSubsequentIndexTypes :: Parser Filter
@@ -157,13 +157,13 @@ parseSubsequentIndexTypes =
       <|> parseNonEmptyIterator
       <|> parseDictGenIndexing
       <|> parseIdenWithDot
-      <|> parseArrayOpt
+      <|> parseArrayIndexing
       <|> parseSlice
 
--- >>> parse parseFilter ".foo[5][\"bar\"][4:5]"
--- [(foo|[5]|["bar"]|[4:5]|.,"")]
+-- >>> parse parseFilter ".foo[5][\"bar\"][2,3:]"
+-- [((foo|[5]|["bar"]|[Just (2,3):Nothing]|.),"")]
 -- >>> parse parseFilter ".foo.bar"
--- [(foo|bar|.,"")]
+-- [((foo|bar|.),"")]
 
 -- Paren
 parseParen :: Parser Filter
@@ -180,15 +180,11 @@ parseRecDesc = do
   _ <- parseIndexPeriod
   return RecDesc
 
--- JSON filter
--- parseJSONFilter :: Parser Filter
--- parseJSONFilter = undefined
-
 -- Main parsing function
 parseFilter :: Parser Filter
 parseFilter = parseInfixLevel 0
 
--- Recursive descent infix precedence
+-- Infix precedence using recursive descent method
 parseInfixLevel :: Int -> Parser Filter
 parseInfixLevel n = case lookup n infixPrecedenceMap of
   Just parser -> parser <|> parseInfixLevel (n+1)

@@ -1,5 +1,6 @@
 module Jq.Json where
 import Data.Char
+import Data.List (isPrefixOf)
 
 
 data JSON
@@ -13,11 +14,11 @@ data JSON
 
   -- where
   --   escape [] = []
-  --   escape (x : y : xs)
-  --     | x == '\\' && y == 'n' = y : escape xs
-  --     | x == '\\' && y == '\\' = x : y : escape xs
-  --     | otherwise = x : y : escape xs
-  --   escape xs = xs
+  --   escape (x : y : toSplit)
+  --     | x == '\\' && y == 'n' = y : escape toSplit
+  --     | x == '\\' && y == '\\' = x : y : escape toSplit
+  --     | otherwise = x : y : escape toSplit
+  --   escape toSplit = toSplit
 
 -- >>> :t 2.0e45
 -- 2.0e45 :: Fractional p => p
@@ -39,17 +40,17 @@ renderBool False = "false"
 renderInnerJArray :: Show a => [a] -> String
 renderInnerJArray [] = ""
 renderInnerJArray [x] = "\n" ++ show x ++ "\n"
-renderInnerJArray (x : xs) = "\n" ++ show x ++ "," ++ renderInnerJArray xs
+renderInnerJArray (x : toSplit) = "\n" ++ show x ++ "," ++ renderInnerJArray toSplit
 
 renderInnerJObject :: [(String, JSON)] -> String
 renderInnerJObject [] = ""
 renderInnerJObject [(key, val)] = "\n" ++ show (JString key) ++ ": " ++ show val ++ "\n"
-renderInnerJObject ((key, val) : xs) = "\n" ++ show (JString key) ++ ": " ++ show val ++ "," ++ renderInnerJObject xs
+renderInnerJObject ((key, val) : toSplit) = "\n" ++ show (JString key) ++ ": " ++ show val ++ "," ++ renderInnerJObject toSplit
 
 replaceExceptLast :: Char -> String -> String -> String
 replaceExceptLast _ _ [] = []
 replaceExceptLast _ _ [x] = [x]
-replaceExceptLast old new (x : xs) = if x == old then new ++ replaceExceptLast old new xs else x : replaceExceptLast old new xs
+replaceExceptLast old new (x : toSplit) = if x == old then new ++ replaceExceptLast old new toSplit else x : replaceExceptLast old new toSplit
 
 escapeChars :: [Char] -> String -> String
 escapeChars [] str = str
@@ -60,30 +61,30 @@ escapeChars (old : olds) str = escapeChars olds (replace old new str)
 replace :: Char -> String -> String -> String
 replace _ _ [] = []
 replace old new ('\\' : 'u' : '0' : '0' : '0' : '0' : rest) = "\\u0000" ++ replace old new rest
-replace old new (x : xs) = if x == old then new ++ replace old new xs else x : replace old new xs
+replace old new (x : toSplit) = if x == old then new ++ replace old new toSplit else x : replace old new toSplit
 
 -- >>> escapeChars "" "\\u0000"
 -- "\\u0000"
 
 -- renderJArray :: String
--- renderJArray = "[" ++ replace "\n" "\n  " (renderInnerJArray xs) ++ "]"
+-- renderJArray = "[" ++ replace "\n" "\n  " (renderInnerJArray toSplit) ++ "]"
 
 mergeSort :: Ord a => ((a, b) -> (a, b) -> Ordering) -> [(a, b)] -> [(a, b)]
 mergeSort _ [] = []
 mergeSort _ [x] = [x]
-mergeSort f xs = merge f (mergeSort f firstHalf) (mergeSort f secondHalf)
+mergeSort f toSplit = merge f (mergeSort f firstHalf) (mergeSort f secondHalf)
   where
-    half = div (length xs) 2
-    firstHalf = take half xs
-    secondHalf = drop half xs
+    half = div (length toSplit) 2
+    firstHalf = take half toSplit
+    secondHalf = drop half toSplit
 
 merge :: Ord a => ((a, b) -> (a, b) -> Ordering) -> [(a, b)] -> [(a, b)] -> [(a, b)]
 merge _ [] [] = []
-merge _ xs [] = xs
+merge _ toSplit [] = toSplit
 merge _ [] ys = ys
-merge f (x : xs) (y : ys)
-  | f x y == LT = x : merge f xs (y : ys)
-  | otherwise = y : merge f (x : xs) ys
+merge f (x : toSplit) (y : ys)
+  | f x y == LT = x : merge f toSplit (y : ys)
+  | otherwise = y : merge f (x : toSplit) ys
 
 instance Show JSON where
   show JNull = "null"
@@ -101,7 +102,7 @@ instance Show JSON where
       asFloatWithFixedEnding = dubStrWithoutExp ++ fixedExpEnding
   show (JString str) = "\"" ++ escapeChars ['\\', '\'','\"','\n','\r','\t','\b','\f','\v'] str ++ "\""
   show (JBool b) = renderBool b
-  show (JArray xs) = "[" ++ replaceExceptLast '\n' "\n  " (renderInnerJArray xs) ++ "]"
+  show (JArray toSplit) = "[" ++ replaceExceptLast '\n' "\n  " (renderInnerJArray toSplit) ++ "]"
   show (JObject objs) = "{" ++ sorted ++ "}"
     where
       sorted = replaceExceptLast '\n' "\n  " (renderInnerJObject (mergeSort sortFunction objs))
@@ -143,8 +144,8 @@ instance Eq JSON where
   (JNumber x) == (JNumber y) = x == y
   (JString x) == (JString y) = x == y
   (JBool x) == (JBool y) = x == y
-  (JArray xs) == (JArray ys) = xs == ys
-  (JObject xs) == (JObject ys) = xs == ys
+  (JArray toSplit) == (JArray ys) = toSplit == ys
+  (JObject toSplit) == (JObject ys) = toSplit == ys
   _ == _ = False
 
 instance Ord JSON where
@@ -152,8 +153,8 @@ instance Ord JSON where
   compare (JNumber x) (JNumber y) = compare x y
   compare (JString x) (JString y) = compare x y
   compare (JBool x) (JBool y) = compare x y
-  compare (JArray xs) (JArray ys) = compare xs ys
-  compare (JObject xs) (JObject ys) = compare xs ys
+  compare (JArray toSplit) (JArray ys) = compare toSplit ys
+  compare (JObject toSplit) (JObject ys) = compare toSplit ys
   -- Special cases JNull
   compare JNull (JNumber _) = LT
   compare JNull (JString _) = LT
@@ -190,6 +191,138 @@ instance Ord JSON where
   compare (JObject _) (JString _) = GT
   compare (JObject _) (JBool _) = GT
   compare (JObject _) (JArray _) = GT
+
+
+removeAll :: Eq a => [a] -> [a] -> [a]
+removeAll = foldr removeEveryInstanceOfFrom
+
+removeEveryInstanceOfFrom :: Eq a => a -> [a] -> [a]
+removeEveryInstanceOfFrom _ [] = []
+removeEveryInstanceOfFrom toRemove (x:toSplit)
+  | x == toRemove = removeEveryInstanceOfFrom toRemove toSplit
+  | otherwise = x : removeEveryInstanceOfFrom toRemove toSplit
+
+-- >>> [1,2,3,5,5,3,3,3,3,3,3,4,4,4,2,1,1,1,2,2,2,7,8,9,0] `removeAll` [1,2,3,3,4,7,7,7,0]
+-- [5,5,8,9]
+
+tileListDub :: Double -> [a] -> [a]
+tileListDub n = tileList (floor n)
+
+tileList :: Int -> [a] -> [a]
+tileList n toSplit
+  | n > 0 = toSplit ++ tileList (n - 1) toSplit
+  | otherwise = []
+
+recMergeKvPairIntoKvPairList :: (String, JSON) -> [(String, JSON)] -> [(String, JSON)]
+recMergeKvPairIntoKvPairList toMerge [] = [toMerge]
+recMergeKvPairIntoKvPairList (toMergeKey,toMergeVal) ((kvpKey,kvpVal):kvps)
+  | toMergeKey == kvpKey = case (kvpVal, toMergeVal) of
+    (JObject toSplit, JObject ys) -> (toMergeKey, JObject (recMergeKvps toSplit ys)) : kvps
+    (_, _)                   -> (toMergeKey,toMergeVal) : kvps
+  | otherwise = (kvpKey,kvpVal) : recMergeKvPairIntoKvPairList (toMergeKey,toMergeVal) kvps
+
+recMergeKvps :: [(String, JSON)] -> [(String, JSON)] -> [(String, JSON)]
+recMergeKvps kvps1 [] = kvps1
+recMergeKvps [] kvps2 = kvps2
+recMergeKvps kvps1 (kvp2:kvps2) = recMergeKvps listWithOneMerged kvps2
+  where listWithOneMerged = recMergeKvPairIntoKvPairList kvp2 kvps1
+
+mergeKvPairIntoKvPairList :: (String, JSON) -> [(String, JSON)] -> [(String, JSON)]
+mergeKvPairIntoKvPairList toMerge [] = [toMerge]
+mergeKvPairIntoKvPairList (toMergeKey,toMergeVal) ((kvpKey,kvpVal):kvps)
+  | toMergeKey == kvpKey = (toMergeKey,toMergeVal) : kvps
+  | otherwise = (kvpKey,kvpVal) : mergeKvPairIntoKvPairList (toMergeKey,toMergeVal) kvps
+
+mergeKvps :: [(String, JSON)] -> [(String, JSON)] -> [(String, JSON)]
+mergeKvps kvps1 [] = kvps1
+mergeKvps [] kvps2 = kvps2
+mergeKvps kvps1 (kvp2:kvps2) = mergeKvps listWithOneMerged kvps2
+  where listWithOneMerged = mergeKvPairIntoKvPairList kvp2 kvps1
+
+-- recMergeKvps :: [(String, JSON)] -> [(String, JSON)] -> [(String, JSON)]
+-- recMergeKvps kvps1 kvps2 = toList (fromList kvps2 `union` fromList kvps1)
+
+-- >>> tileListDub (3.6) "tile"
+-- "tiletiletile"
+
+-- https://hackage.haskell.org/package/base-4.16.1.0/docs/GHC-Num.html
+instance Num JSON where
+  -- Addition
+  anyThing + JNull = anyThing
+  JNull + anyThing = anyThing
+  (JNumber x) + (JNumber y) = JNumber (x + y)
+  (JString toSplit) + (JString ys) = JString (toSplit ++ ys)
+  (JArray toSplit) + (JArray ys) = JArray (toSplit ++ ys)
+  (JObject kvps1) + (JObject kvps2) = JObject (mergeKvps kvps1 kvps2)
+  _ + _ = error "Error performing addition between different types"
+  -- Subtraction
+  (JNumber x) - (JNumber y) = JNumber (x - y)
+  (JArray toSplit) - (JArray ys) = JArray (toSplit `removeAll` ys)
+  _ - _ = error "Error performing subtraction between different types"
+  -- Multiplication -> https://stedolan.github.io/jq/manual/v1.5/#Builtinoperatorsandfunctions
+  (JNumber x) * (JNumber y) = JNumber (x * y)
+  (JNumber n) * (JString str)
+    | n <= 0 = JNull
+    | otherwise = JString (tileListDub n str)
+  (JString str) * (JNumber n) = JNumber n * JString str
+  (JObject kvps1) * (JObject kvps2) = JObject (recMergeKvps kvps1 kvps2)
+  _ * _ = error "Error performing multiplication between different types"
+  -- JNull
+  -- JNumber
+  -- JString
+  -- JBool
+  -- JArray
+  -- JObject
+
+indicesOf :: String -> String -> Int -> [Int]
+indicesOf toSplit sep = indicesOfHelper (toSplit ++ sep) sep
+
+indicesOfHelper :: String -> String -> Int -> [Int]
+indicesOfHelper [] _ _ = []
+indicesOfHelper toSplit sep idx
+  | sep == "" = idx : indicesOfHelper (tail toSplit) sep 0
+  | sep `isPrefixOf` toSplit = idx : indicesOfHelper nextSegment sep 0
+  | otherwise = indicesOfHelper startingFromSep sep (idx + numDropped)
+    where sepLen = length sep
+          nextSegment = drop sepLen toSplit
+          numDropped = length (takeWhilePrefix toSplit sep)
+          startingFromSep = dropWhilePrefix toSplit sep
+
+takeWhilePrefix :: String -> String -> String
+takeWhilePrefix [] _ = []
+takeWhilePrefix (o:other) sep
+  | sep `isPrefixOf` (o:other) = []
+  | otherwise = o : takeWhilePrefix other sep
+
+dropWhilePrefix :: String -> String -> String
+dropWhilePrefix [] _ = []
+dropWhilePrefix (o:other) sep
+  | sep `isPrefixOf` (o:other) = o:other
+  | otherwise = dropWhilePrefix other sep
+
+splitByHelper :: [a] -> [Int] -> Int -> [[a]]
+splitByHelper _ [] _ = error "Not possible"
+splitByHelper toSplit [idx] _ = [take idx toSplit]
+splitByHelper toSplit (idx:idxs) skiplen
+  = taken : splitByHelper (drop skiplen left) idxs skiplen
+    where taken = take idx toSplit
+          left = drop idx toSplit
+splitBy :: [Char] -> [Char] -> JSON
+splitBy toSplit sep = JArray (map JString splitResult)
+  where splitResult = splitByHelper toSplit (indicesOf toSplit sep 0) (length sep)
+-- >>> indicesOf "asdasd" "as" 0
+-- [0,1,1]
+
+-- >>> splitBy "xadsfasdffdsxcasdfxdsfasdfxadsfasdfxsd" "asdf"
+
+-- https://hackage.haskell.org/package/base-4.16.1.0/docs/Prelude.html#t:Fractional
+instance Fractional JSON where
+  -- Division
+  (JNumber x) / (JNumber y) = JNumber (x / y)
+  (JNumber _) / (JNumber 0) = error "Error performing division by zero"
+  (JString x) / (JString y) = x `splitBy` y
+  _ / _ = error "Error performing divion between different types"
+
 
 -- Smart constructors
 -- Don't change the names or signatures, only the definitions

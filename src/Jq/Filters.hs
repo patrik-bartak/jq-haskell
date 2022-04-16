@@ -38,6 +38,11 @@ data Filter
   | LogicalAnd Filter Filter
   | LogicalOr Filter Filter
   | LogicalNot
+  -- Arithmetic
+  | Add Filter Filter
+  | Subt Filter Filter
+  | Mult Filter Filter
+  | Div Filter Filter
   deriving (Eq)
 
 instance Show Filter where
@@ -82,6 +87,12 @@ instance Show Filter where
   show (LogicalAnd f1 f2) = show f1 ++ " and " ++ show f2
   show (LogicalOr f1 f2) = show f1 ++ " or " ++ show f2
   show LogicalNot = "not"
+  -- Arithmetic
+  show (Add f1 f2 ) = show f1 ++ " + " ++ show f2
+  show (Subt f1 f2 ) = show f1 ++ " - " ++ show f2
+  show (Mult f1 f2 ) = show f1 ++ " * " ++ show f2
+  show (Div f1 f2 ) = show f1 ++ " / " ++ show f2
+
 
 -- instance Eq Filter where
 --   -- Identity, Parentheses

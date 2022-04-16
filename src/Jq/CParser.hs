@@ -203,7 +203,11 @@ infixPrecedenceMap = fromList [
     (7, parseLessThan),
     (8, parseLessThanOrEqual),
     (9, parseMoreThan),
-    (10, parseMoreThanOrEqual)
+    (10, parseMoreThanOrEqual),
+    (11, parseSubt),
+    (12, parseAdd),
+    (13, parseDiv),
+    (14, parseMult)
   ]
 
 parseFilterNotInfix :: Parser Filter
@@ -337,7 +341,7 @@ parseLogicalAnd = do
   right <- parseInfixLevel opPrec
   return (Paren (LogicalAnd left right))
 
--- LogicalAnd - 4
+-- LogicalNot - 4
 parseLogicalNot :: Parser Filter
 parseLogicalNot = do
   _ <- token (string "not")
@@ -402,6 +406,46 @@ parseMoreThanOrEqual = do
   _ <- token (string op)
   right <- parseInfixLevel opPrec
   return (Paren (MoreThanOrEqual left right))
+
+-- Subt - 11
+parseSubt :: Parser Filter
+parseSubt = do
+  let op = "-"
+  let opPrec = 11
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (Subt left right))
+
+-- Add - 12
+parseAdd :: Parser Filter
+parseAdd = do
+  let op = "+"
+  let opPrec = 12
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (Add left right))
+
+-- Div - 13
+parseDiv :: Parser Filter
+parseDiv = do
+  let op = "/"
+  let opPrec = 13
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (Div left right))
+
+-- Mult - 14
+parseMult :: Parser Filter
+parseMult = do
+  let op = "*"
+  let opPrec = 14
+  left <- parseIfContains op (parseInfixLevel (opPrec + 1))
+  _ <- token (string op)
+  right <- parseInfixLevel opPrec
+  return (Paren (Mult left right))
 
 
 -- >>> parse parseFilter "true and true or true and true"

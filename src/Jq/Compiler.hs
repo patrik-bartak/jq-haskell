@@ -324,6 +324,27 @@ compile (IfThenElse cond caseTrue caseFalse) inp = do
   let trueOrFalses = map getJsonTruthValue conds
   let casesFilters = map (ifThenElseReturnCorrectCase caseTrue caseFalse) trueOrFalses
   fmap concat (mapM (`compile` inp) casesFilters)
+-- Arithmetic
+-- And
+compile (Add filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return ((+) <$> res1 <*> res2)
+-- Subt
+compile (Subt filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return ((-) <$> res1 <*> res2)
+-- Mult
+compile (Mult filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return ((*) <$> res1 <*> res2)
+-- Div
+compile (Div filt1 filt2) inp = do
+  res1 <- compile filt1 inp
+  res2 <- compile filt2 inp
+  return ((/) <$> res1 <*> res2)
 
 run :: JProgram [JSON] -> JSON -> Either String [JSON]
 run p j = p j

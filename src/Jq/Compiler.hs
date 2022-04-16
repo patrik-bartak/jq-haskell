@@ -45,6 +45,7 @@ normalizeIndexDub idx xs
 -- (-4.0,False)
 
 compile :: Filter -> JProgram [JSON]
+compile Empty _ = return []
 -- DictIdenIndexing Req
 compile (DictIdenIndexing Req _) JNull = return [JNull]
 compile (DictIdenIndexing Req _) (JNumber _) = Left "Cannot DictIndex number"
@@ -345,6 +346,11 @@ compile (Div filt1 filt2) inp = do
   res1 <- compile filt1 inp
   res2 <- compile filt2 inp
   return ((/) <$> res1 <*> res2)
+-- Try Catch
+compile (TryCatch filt1 filt2) inp = case compile filt1 inp of
+  Left errStr -> compile filt2 (JString errStr)
+  Right jss -> return jss
+
 
 run :: JProgram [JSON] -> JSON -> Either String [JSON]
 run p j = p j

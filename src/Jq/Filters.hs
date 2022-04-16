@@ -43,6 +43,9 @@ data Filter
   | Subt Filter Filter
   | Mult Filter Filter
   | Div Filter Filter
+  -- Try Catch
+  | TryCatch Filter Filter
+  | Empty
   deriving (Eq)
 
 instance Show Filter where
@@ -92,6 +95,9 @@ instance Show Filter where
   show (Subt f1 f2 ) = show f1 ++ " - " ++ show f2
   show (Mult f1 f2 ) = show f1 ++ " * " ++ show f2
   show (Div f1 f2 ) = show f1 ++ " / " ++ show f2
+  -- Try Catch
+  show (TryCatch f1 f2) = "try" ++ show f1 ++ "catch" ++ show f2
+  show Empty = "empty"
 
 
 -- instance Eq Filter where

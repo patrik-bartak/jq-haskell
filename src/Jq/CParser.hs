@@ -98,6 +98,12 @@ parseIdentity = do
   _ <- parseIndexPeriod
   return Identity
 
+-- Empty
+parseEmpty :: Parser Filter
+parseEmpty = do
+  _ <- token (string "empty")
+  return Empty
+
 parseEmptyIterator :: Parser Filter
 parseEmptyIterator = do
   _ <- parseIndexingOpen
@@ -215,7 +221,10 @@ parseFilterNotInfix = parseRecDesc
                   <|> parseParen
                   <|> parseIndexing
                   <|> parseIdentity
+                  <|> parseEmpty
                   <|> parseIfThenElse
+                  <|> parseTryCatch
+                  <|> parseTry
                   <|> parseJSONFilters
 
 parseJSONFilters :: Parser Filter
@@ -466,6 +475,20 @@ parseIfThenElse = do
 
 -- >>> parse parseFilter "if true and 5 == 6 then [1,2,3] else \"nothing\" end"
 -- [(if ((true and (5 == 6))) then ([(1,(2,3))]) else ("nothing") end,"")]
+
+parseTryCatch :: Parser Filter
+parseTryCatch = do
+  _ <- token (string "try")
+  tryFilt <- parseFilter
+  _ <- token (string "catch")
+  catchFilt <- parseFilter
+  return (TryCatch tryFilt catchFilt)
+
+parseTry :: Parser Filter
+parseTry = do
+  _ <- token (string "try")
+  tryFilt <- parseFilter
+  return (TryCatch tryFilt Empty)
 
 -- For some reason I decided to spend time implementing Dijkstra's shunting yard algorithm?
 

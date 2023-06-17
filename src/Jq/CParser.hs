@@ -98,6 +98,30 @@ parseIdentity = do
   _ <- parseIndexPeriod
   return Identity
 
+-- Length
+parseLength :: Parser Filter
+parseLength = do
+  _ <- token (string "length")
+  return Length
+
+-- ToNumber
+parseToNumber :: Parser Filter
+parseToNumber = do
+  _ <- token (string "tonumber")
+  return ToNumber
+
+-- Any
+parseAny :: Parser Filter
+parseAny = do
+  _ <- token (string "any")
+  return Any
+
+-- All
+parseAll :: Parser Filter
+parseAll = do
+  _ <- token (string "all")
+  return All
+
 -- Empty
 parseEmpty :: Parser Filter
 parseEmpty = do
@@ -221,6 +245,10 @@ parseFilterNotInfix = parseRecDesc
                   <|> parseParen
                   <|> parseIndexing
                   <|> parseIdentity
+                  <|> parseLength
+                  <|> parseToNumber
+                  <|> parseAny
+                  <|> parseAll
                   <|> parseEmpty
                   <|> parseIfThenElse
                   <|> parseTryCatch

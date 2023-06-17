@@ -46,6 +46,35 @@ normalizeIndexDub idx xs
 
 compile :: Filter -> JProgram [JSON]
 compile Empty _ = return []
+-- Length
+compile Length JNull = Left "Cannot get Length of JNull"
+compile Length (JNumber _) = Left "Cannot get Length of JNumber"
+compile Length (JString str) = return [JNumber $ fromIntegral $ length str]
+compile Length (JBool _) = Left "Cannot get Length of JBool"
+compile Length (JArray arr) = return [JNumber $ fromIntegral $ length arr]
+compile Length (JObject obj) = return [JNumber $ fromIntegral $ length obj]
+-- ToNumber
+compile ToNumber JNull = Left "Cannot call ToNumber on JNull"
+compile ToNumber (JNumber num) = return [JNumber num]
+compile ToNumber (JString str) = return [JNumber $ read str]
+compile ToNumber (JBool bool) = return [JNumber $ fromIntegral $ fromEnum bool]
+compile ToNumber (JArray arr) = Left "Cannot call ToNumber on JArray"
+compile ToNumber (JObject obj) = Left "Cannot call ToNumber on JObject"
+-- Any
+compile Any JNull = Left "Cannot call Any on JNull"
+compile Any (JNumber num) = Left "Cannot call Any on JNumber"
+compile Any (JString str) = Left "Cannot call Any on JString"
+compile Any (JBool bool) = Left "Cannot call Any on JBool"
+compile Any (JArray arr) = return [JBool $ or $ (map getJsonTruthValue arr)]
+compile Any (JObject obj) = Left "Cannot call Any on JObject"
+-- All
+compile All JNull = Left "Cannot call All on JNull"
+compile All (JNumber num) = Left "Cannot call All on JNumber"
+compile All (JString str) = Left "Cannot call All on JString"
+compile All (JBool bool) = Left "Cannot call All on JBool"
+compile All (JArray arr) = return [JBool $ and $ (map getJsonTruthValue arr)]
+-- compile All (JArray arr) = return [JBool $ any (<this should be a function>) $ (map getJsonTruthValue arr)]
+compile All (JObject obj) = Left "Cannot call All on JObject"
 -- DictIdenIndexing Req
 compile (DictIdenIndexing Req _) JNull = return [JNull]
 compile (DictIdenIndexing Req _) (JNumber _) = Left "Cannot DictIndex number"

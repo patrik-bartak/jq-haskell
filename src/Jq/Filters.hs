@@ -9,6 +9,10 @@ data DataType = Arr | Dict
 
 data Filter
   = Identity -- done
+  | Length
+  | ToNumber
+  | Any
+  | All
   | Paren Filter -- done
   {- most done - check if name parsing and edge cases with and without identity (.foo vs foo) are ok -}
   | DictIdenIndexing Optionality String
@@ -51,6 +55,10 @@ data Filter
 instance Show Filter where
   -- Identity, Parentheses
   show Identity = "."
+  show Length = "length"
+  show ToNumber = "tonumber"
+  show Any = "any"
+  show All = "all"
   show (Paren filt) = "(" ++ show filt ++ ")"
   -- Dict Indexing
   show (DictIdenIndexing Req field) = "" ++ field

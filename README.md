@@ -1,4 +1,4 @@
-# Jq Haskell project for FP course at TU Delft
+# Jq in Haskell functional programming project
 
 A clone of `jq` in Haskell.
 
